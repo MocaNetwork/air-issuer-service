@@ -8,6 +8,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "batch-issue-vc-csv": "RUNNER=true nest start --entryFile runners/batch-issue-vc-csv",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
@@ -38,8 +39,10 @@
     "axios": "^1.16.1",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "csv": "^6.6.0",
     "jose": "^6.2.3",
     "jsonld": "^9.0.0",
+    "lodash": "^4.18.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "socks-proxy-agent": "^10.0.0"
@@ -53,6 +56,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/jsonld": "^1.5.15",
+    "@types/lodash": "^4.17.24",
     "@types/node": "^24.0.0",
     "@types/supertest": "^7.0.0",
     "eslint": "^9.18.0",

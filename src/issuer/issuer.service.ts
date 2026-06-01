@@ -172,10 +172,10 @@ export class IssuerService {
     });
   }
 
-  private async generatePartnerJwt(): Promise<string> {
+  async generatePartnerJwt(opts?: { email?: string }): Promise<string> {
     const expiryTTL = this.partnerAuth.expiry.getTime() - Date.now();
 
-    if (expiryTTL > PARTNER_AUTH_EXPIRY_THRESHOLD_MS) {
+    if (expiryTTL > PARTNER_AUTH_EXPIRY_THRESHOLD_MS && opts?.email === undefined) {
       return this.partnerAuth.jwt;
     }
 
@@ -185,7 +185,7 @@ export class IssuerService {
       alg: this.partnerPrivateKeyInfo.alg,
       kid: this.partnerPrivateKeyInfo.kid,
     };
-    const jwt = await new SignJWT({ partnerId: this.partnerId })
+    const jwt = await new SignJWT({ partnerId: this.partnerId, email: opts?.email })
       .setProtectedHeader(headers)
       .setExpirationTime(expiry)
       // .setAudience(aud)

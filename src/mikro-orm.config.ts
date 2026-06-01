@@ -11,7 +11,7 @@ export default defineConfig({
   entitiesTs: ['./src/**/*.entity.ts'],
   driver: PostgreSqlDriver,
   clientUrl,
-  allowGlobalContext: false,
+  allowGlobalContext: process.env.RUNNER === 'true',
   logger: console.log,
   debug: true,
   migrations: {
