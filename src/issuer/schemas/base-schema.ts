@@ -1,7 +1,6 @@
 import { MerklizedRootPosition, W3CCredential } from '@mocanetwork/privado-js-sdk';
 
-export abstract class BaseProgram {
-  programId: string;
+export abstract class BaseSchema {
   schemaId: string;
   schemaType: string;
   schemaUrl: string;

@@ -22,14 +22,14 @@ export class AppController {
         pubKey: body.pubKey,
         userId: body.userId,
       },
-      { programId: body.programId },
+      { schemaId: body.schemaId },
     );
   }
 
   @UseGuards(ApiKeyGuard)
   @Post('issue-vc')
   async issueVc(@Body() body: IssueVcRequestBodyDto) {
-    return await this.issuerService.issueVc(body.programId, {
+    return await this.issuerService.issueVc(body.schemaId, {
       holderDID: body.holderDID,
       pubKey: body.pubKey,
       userId: body.userId,

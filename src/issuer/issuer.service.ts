@@ -1,14 +1,15 @@
 import { EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
-import programs from './programs';
-import { BaseProgram } from './programs/base-program';
 import { CredentialIssuance } from './entities/issuance-history.entity';
+
+import { BaseSchema } from './schemas/base-schema';
+import schemas from './schemas';
 
 @Injectable()
 export class IssuerService {
-  private readonly programIdMap: { [programId: string]: BaseProgram } = {};
-  private readonly programs: BaseProgram[];
+  private readonly schemaIdMap: { [schemaId: string]: BaseSchema } = {};
+  private readonly schemas: BaseSchema[];
 
   constructor(
     // NOTE: Treat CredentialIssuingService as a separate http service.
@@ -17,31 +18,30 @@ export class IssuerService {
     private readonly credentialIssuingService: CredentialIssuingService,
     private readonly entityManager: EntityManager,
   ) {
-    this.programs = programs;
-    programs.forEach((e) => {
-      this.programIdMap[e.programId] = e;
+    this.schemas = schemas;
+    schemas.forEach((e) => {
+      this.schemaIdMap[e.schemaId] = e;
     });
   }
 
   async availableVc(
     holder: { userId: string; holderDID: string; pubKey: string },
-    filters?: { programId?: string },
+    filters?: { schemaId?: string },
   ): Promise<object> {
     const VCs: any[] = [];
 
-    for (const program of this.programs) {
-      if (![program.programId, undefined].includes(filters?.programId)) {
+    for (const schemas of this.schemas) {
+      if (![schemas.schemaId, undefined].includes(filters?.schemaId)) {
         continue;
       }
 
-      const { credentialSubject } = await program.generateCredentialData(holder.userId);
+      const { credentialSubject } = await schemas.generateCredentialData(holder.userId);
       const payload = JSON.stringify(credentialSubject);
       const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey);
 
       VCs.push({
         holderDID: holder.holderDID,
-        schemaId: program.schemaId,
-        programId: program.programId,
+        schemaId: schemas.schemaId,
         data: encryptedData,
       });
     }
@@ -49,13 +49,13 @@ export class IssuerService {
     return { data: VCs };
   }
 
-  async issueVc(programId: string, holder: { userId: string; holderDID: string; pubKey: string }): Promise<object> {
-    const program = this.programIdMap[programId];
+  async issueVc(schemaId: string, holder: { userId: string; holderDID: string; pubKey: string }): Promise<object> {
+    const schema = this.schemaIdMap[schemaId];
 
-    if (program === undefined) throw new NotFoundException(`Invalid Program: ${programId}`);
+    if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
 
     return this.entityManager.transactional(async (em) => {
-      const credential = await program.issue(holder.userId, {
+      const credential = await schema.issue(holder.userId, {
         holderDID: holder.holderDID,
         issue: (...args) => this.credentialIssuingService.issue(...args),
       });
@@ -64,8 +64,7 @@ export class IssuerService {
 
       const credentialIssuance = new CredentialIssuance();
       credentialIssuance.holderDid = holder.holderDID;
-      credentialIssuance.programId = program.programId;
-      credentialIssuance.schemaId = program.schemaId;
+      credentialIssuance.schemaId = schema.schemaId;
       credentialIssuance.revocationNonce = credential.credentialStatus.revocationNonce!.toString();
       credentialIssuance.createdAt = new Date(credential.issuanceDate!);
       credentialIssuance.expiresAt = new Date(credential.expirationDate!);
@@ -74,8 +73,7 @@ export class IssuerService {
 
       return {
         holderDID: holder.holderDID,
-        schemaId: program.schemaId,
-        programId: program.programId,
+        schemaId: schema.schemaId,
         data: encryptedData,
       };
     });
@@ -90,7 +88,6 @@ export class IssuerService {
     limit?: number;
     order?: string;
     holderDid?: string;
-    programId?: string;
     schemaId?: string;
     revocationNonce?: string;
   }) {
@@ -101,7 +98,6 @@ export class IssuerService {
     const filters: FilterQuery<NoInfer<CredentialIssuance>> = {};
 
     if (query.holderDid !== undefined) filters.holderDid = query.holderDid;
-    if (query.programId !== undefined) filters.programId = query.programId;
     if (query.schemaId !== undefined) filters.schemaId = query.schemaId;
     if (query.revocationNonce !== undefined) filters.revocationNonce = query.revocationNonce;
 

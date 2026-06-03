@@ -23,11 +23,6 @@ export class IssuanceHistoryRequestQueryDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  programId?: string;
-
-  @IsOptional()
-  @IsString()
-  @IsNotEmpty()
   schemaId?: string;
 
   @IsOptional()

@@ -5,7 +5,6 @@ export const CredentialIssuanceSchema = defineEntity({
   properties: {
     id: p.bigint().primary(),
     holderDid: p.text().index(),
-    programId: p.text().index(),
     schemaId: p.text().index(),
     revocationNonce: p.bigint<'string'>().index(),
     createdAt: p.datetime().defaultRaw('NOW()'),

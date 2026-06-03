@@ -15,5 +15,5 @@ export class IssueVcRequestBodyDto {
 
   @IsString()
   @IsNotEmpty()
-  programId: string;
+  schemaId: string;
 }

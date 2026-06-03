@@ -16,5 +16,5 @@ export class AvailableVcRequestBodyDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  programId?: string;
+  schemaId?: string;
 }

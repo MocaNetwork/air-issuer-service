@@ -1,9 +1,8 @@
-import { BaseProgram } from './base-program';
+import { BaseSchema } from './base-schema';
 
 const EXPIRY_SEC = 30 * 24 * 60 * 60; // In Seconds
 
-class Program extends BaseProgram {
-  public readonly programId = 'c28yl0g0erng1beucmh27l';
+export default class Schema extends BaseSchema {
   public readonly schemaId = '01KKX3Q7DEK0GM2TCKMMHA';
   public readonly schemaType = 'mocabasher';
   public readonly schemaUrl = 'https://credential.api.staging.air3.com/dstorage/download/01KKX3Q7DFFWNMD85T17X8';
@@ -22,5 +21,3 @@ class Program extends BaseProgram {
     });
   }
 }
-
-export default new Program();
