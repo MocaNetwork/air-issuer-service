@@ -13,7 +13,7 @@ import { hexStrToBuffer } from './string';
 const CIPHER = 'aes-256-gcm';
 
 export type EncryptionPackage = {
-  data: string;
+  encryptedData: string;
   iv: string;
   authTag: string;
   dataEncPublicKeyHex: string;
@@ -47,7 +47,7 @@ export async function encryptText(text: string, masterPublicKeyHex: string): Pro
   const dataEncPublicKeyHex = dataEncKey.publicKey.export({ format: 'der', type: 'spki' }).toString('hex');
 
   return {
-    data: `0x${encrypted}`,
+    encryptedData: `0x${encrypted}`,
     iv: `0x${iv.toString('hex')}`,
     authTag: `0x${authTag}`,
     dataEncPublicKeyHex: `0x${dataEncPublicKeyHex}`,
@@ -55,7 +55,7 @@ export async function encryptText(text: string, masterPublicKeyHex: string): Pro
 }
 
 export async function decryptText(payload: EncryptionPackage, masterPrivateKeyHex: string): Promise<string> {
-  const { data } = payload;
+  const { encryptedData } = payload;
 
   const dataEncPublicKeyHex = hexStrToBuffer(payload.dataEncPublicKeyHex);
   const iv = hexStrToBuffer(payload.iv);
@@ -87,7 +87,7 @@ export async function decryptText(payload: EncryptionPackage, masterPrivateKeyHe
   const decipher = createDecipheriv(CIPHER, symmetricKey, iv);
   decipher.setAuthTag(authTag);
 
-  let decrypted = decipher.update(data, 'hex', 'utf8');
+  let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
   decrypted += decipher.final('utf8');
 
   return decrypted;

@@ -42,7 +42,7 @@ export class IssuerService {
       VCs.push({
         holderDID: holder.holderDID,
         schemaId: schemas.schemaId,
-        data: encryptedData,
+        credentialSubject: encryptedData,
       });
     }
 
@@ -74,7 +74,7 @@ export class IssuerService {
       return {
         holderDID: holder.holderDID,
         schemaId: schema.schemaId,
-        data: encryptedData,
+        credential: encryptedData,
       };
     });
   }
