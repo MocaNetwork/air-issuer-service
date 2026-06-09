@@ -26,6 +26,8 @@ import { ConfigService } from '@nestjs/config';
 import { encryptText } from '../../common/utils/encryption';
 import { hexStrToBuffer } from '../../common/utils/string';
 import { createDocumentLoader } from '../lib/document-loader';
+
+import { DStorageAPIService } from '../../dstorage/services/dstorage-api.service';
 import { Credential } from '../entities/credential.entity';
 import { Revocation } from '../entities/revocation.entity';
 
@@ -40,6 +42,7 @@ export class CredentialIssuingService {
 
   constructor(
     private readonly configService: ConfigService,
+    private readonly dStorageAPIService: DStorageAPIService,
     private readonly httpService: HttpService,
     private readonly entityManager: EntityManager,
   ) {
@@ -156,6 +159,32 @@ export class CredentialIssuingService {
   async encrypt(text: string, pubKeyHexString: string) {
     // NOTE: Temporarily placed here just for example integration ease
     return await encryptText(text, pubKeyHexString);
+
+  async dstorageUpload(
+    opts: {
+      holderDID: string;
+      schemaId: string;
+      credential: {
+        encryptedData: string;
+        iv: string;
+        authTag: string;
+        dataEncPublicKey: string;
+      };
+    },
+    info: { partnerJwt: string },
+  ) {
+    // NOTE: Temporarily placed here just for example integration ease
+    await this.dStorageAPIService.createObject(
+      {
+        holderDid: opts.holderDID,
+        schemaId: opts.schemaId,
+        data: opts.credential.encryptedData,
+        iv: opts.credential.iv,
+        authTag: opts.credential.authTag,
+        encryptedKey: opts.credential.dataEncPublicKey,
+      },
+      { 'x-partner-auth': info.partnerJwt },
+    );
   }
 
   private assertSetupState() {

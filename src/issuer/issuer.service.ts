@@ -1,27 +1,55 @@
 import { EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql';
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { SignJWT, importPKCS8 } from 'jose';
+
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
 import { CredentialIssuance } from './entities/issuance-history.entity';
 
-import { BaseSchema } from './schemas/base-schema';
 import schemas from './schemas';
+import { BaseSchema } from './schemas/base-schema';
+
+const PARTNER_AUTH_EXPIRY_MS = 15 * 60_000;
+const PARTNER_AUTH_EXPIRY_THRESHOLD_MS = 2 * 60_000;
 
 @Injectable()
 export class IssuerService {
   private readonly schemaIdMap: { [schemaId: string]: BaseSchema } = {};
   private readonly schemas: BaseSchema[];
 
+  private readonly partnerId: string;
+  private partnerPrivateKey: CryptoKey;
+  private readonly partnerPrivateKeyDer: string;
+  private readonly partnerPrivateKeyAlg: string;
+  private readonly partnerPrivateKeyKid: string;
+  private partnerAuth: { expiry: Date; jwt: string } = { expiry: new Date(0), jwt: '' };
+
   constructor(
+    private readonly configService: ConfigService,
+    private readonly entityManager: EntityManager,
+
     // NOTE: Treat CredentialIssuingService as a separate http service.
     // Intended design is HTTP Interaction. For ease of integration,
     // temporarily exposed the underlying service.
     private readonly credentialIssuingService: CredentialIssuingService,
-    private readonly entityManager: EntityManager,
   ) {
+    this.partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
+    this.partnerPrivateKeyDer = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
+    this.partnerPrivateKeyAlg = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_ALG');
+    this.partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
+
     this.schemas = schemas;
     schemas.forEach((e) => {
       this.schemaIdMap[e.schemaId] = e;
     });
+  }
+
+  async onModuleInit() {
+    let pkcs8 = '-----BEGIN PRIVATE KEY-----\n';
+    pkcs8 += this.partnerPrivateKeyDer;
+    pkcs8 += '\n-----END PRIVATE KEY-----';
+
+    this.partnerPrivateKey = await importPKCS8(pkcs8, this.partnerPrivateKeyAlg);
   }
 
   async availableVc(
@@ -54,13 +82,13 @@ export class IssuerService {
 
     if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
 
-    return this.entityManager.transactional(async (em) => {
+    const issuedVC = await this.entityManager.transactional(async (em) => {
       const credential = await schema.issue(holder.userId, {
         holderDID: holder.holderDID,
         issue: (...args) => this.credentialIssuingService.issue(...args),
       });
       const payload = JSON.stringify(credential);
-      const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey);
+      const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
 
       const credentialIssuance = new CredentialIssuance();
       credentialIssuance.holderDid = holder.holderDID;
@@ -77,6 +105,11 @@ export class IssuerService {
         credential: encryptedData,
       };
     });
+
+    const partnerJwt = await this.generatePartnerJwt();
+    await this.credentialIssuingService.dstorageUpload(issuedVC, { partnerJwt });
+
+    return issuedVC;
   }
 
   async credentialStatus(nonce: string) {
@@ -136,5 +169,23 @@ export class IssuerService {
       const revocation = await this.credentialIssuingService.revoke(revocationNonce);
       await em.nativeUpdate(CredentialIssuance, { revocationNonce }, { revokedAt: revocation.createdAt });
     });
+  }
+
+  private async generatePartnerJwt(): Promise<string> {
+    const expiryTTL = this.partnerAuth.expiry.getTime() - Date.now();
+
+    if (expiryTTL > PARTNER_AUTH_EXPIRY_THRESHOLD_MS) {
+      return this.partnerAuth.jwt;
+    }
+
+    // TODO: DStorage `scope` jwt payload
+    const expiry = new Date(Date.now() + PARTNER_AUTH_EXPIRY_MS);
+    const jwt = await new SignJWT({ partnerId: this.partnerId })
+      .setProtectedHeader({ alg: this.partnerPrivateKeyAlg, kid: this.partnerPrivateKeyKid })
+      .setExpirationTime(expiry)
+      .sign(this.partnerPrivateKey);
+
+    this.partnerAuth = { expiry, jwt };
+    return jwt;
   }
 }
