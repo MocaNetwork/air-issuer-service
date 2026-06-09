@@ -156,9 +156,11 @@ export class CredentialIssuingService {
     return await this.entityManager.count(Revocation, { nonce }).then((e) => e > 0);
   }
 
-  async encrypt(text: string, pubKeyHexString: string) {
+  async encrypt(text: string, pubKeyHexString: string, opts?: { encoding: 'hex' | 'base64' }) {
     // NOTE: Temporarily placed here just for example integration ease
-    return await encryptText(text, pubKeyHexString);
+    const pubKey = hexStrToBuffer(pubKeyHexString);
+    return await encryptText(text, pubKey, opts);
+  }
 
   async dstorageUpload(
     opts: {
