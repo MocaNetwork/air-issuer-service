@@ -65,7 +65,7 @@ export class IssuerService {
 
       const { credentialSubject } = await schemas.generateCredentialData(holder.userId);
       const payload = JSON.stringify(credentialSubject);
-      const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey);
+      const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
 
       VCs.push({
         holderDID: holder.holderDID,
