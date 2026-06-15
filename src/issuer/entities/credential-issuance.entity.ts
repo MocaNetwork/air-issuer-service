@@ -1,10 +1,10 @@
 import { defineEntity, p } from '@mikro-orm/postgresql';
 
-export const IssuanceHistorySchema = defineEntity({
-  name: 'IssuanceHistory',
+export const CredentialIssuanceSchema = defineEntity({
+  name: 'CredentialIssuance',
   properties: {
     id: p.bigint().primary(),
-    holder: p.text().index(),
+    holderDid: p.text().index(),
     schemaId: p.text().index(),
     revocationNonce: p.bigint<'string'>().index(),
     createdAt: p.datetime().defaultRaw('NOW()'),
@@ -13,6 +13,6 @@ export const IssuanceHistorySchema = defineEntity({
   },
 });
 
-export class IssuanceHistory extends IssuanceHistorySchema.class {}
+export class CredentialIssuance extends CredentialIssuanceSchema.class {}
 
-IssuanceHistorySchema.setClass(IssuanceHistory);
+CredentialIssuanceSchema.setClass(CredentialIssuance);

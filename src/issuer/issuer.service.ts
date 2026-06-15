@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { SignJWT, importPKCS8 } from 'jose';
 
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
-import { CredentialIssuance } from './entities/issuance-history.entity';
+import { CredentialIssuance } from './entities/credential-issuance.entity';
 
 import schemas from './schemas';
 import { BaseSchema } from './schemas/base-schema';

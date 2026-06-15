@@ -22,7 +22,8 @@
           "default": "now()",
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "datetime"
         },
         "document": {
           "name": "document",
@@ -38,7 +39,8 @@
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "json"
         },
         "holder": {
           "name": "holder",
@@ -54,7 +56,8 @@
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "text"
         },
         "id": {
           "name": "id",
@@ -65,12 +68,13 @@
           "nullable": false,
           "unique": false,
           "length": null,
-          "precision": 64,
-          "scale": 0,
+          "precision": null,
+          "scale": null,
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "bigint"
         },
         "nonce": {
           "name": "nonce",
@@ -81,12 +85,13 @@
           "nullable": false,
           "unique": true,
           "length": null,
-          "precision": 64,
-          "scale": 0,
+          "precision": null,
+          "scale": null,
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "bigint"
         }
       },
       "indexes": [
@@ -144,7 +149,8 @@
           "default": "now()",
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "datetime"
         },
         "expires_at": {
           "name": "expires_at",
@@ -160,7 +166,8 @@
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "datetime"
         },
         "holder_did": {
           "name": "holder_did",
@@ -176,7 +183,8 @@
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "text"
         },
         "id": {
           "name": "id",
@@ -187,12 +195,13 @@
           "nullable": false,
           "unique": false,
           "length": null,
-          "precision": 64,
-          "scale": 0,
+          "precision": null,
+          "scale": null,
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "bigint"
         },
         "revocation_nonce": {
           "name": "revocation_nonce",
@@ -203,12 +212,13 @@
           "nullable": false,
           "unique": false,
           "length": null,
-          "precision": 64,
-          "scale": 0,
+          "precision": null,
+          "scale": null,
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "bigint"
         },
         "revoked_at": {
           "name": "revoked_at",
@@ -224,7 +234,8 @@
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "datetime"
         },
         "schema_id": {
           "name": "schema_id",
@@ -240,7 +251,8 @@
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "text"
         }
       },
       "indexes": [
@@ -291,170 +303,6 @@
       "comment": null
     },
     {
-      "name": "issuance_history",
-      "schema": "public",
-      "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamptz(6)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "unique": false,
-          "length": 6,
-          "precision": null,
-          "scale": null,
-          "default": "now()",
-          "comment": null,
-          "collation": null,
-          "enumItems": []
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamptz(6)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "unique": false,
-          "length": 6,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "comment": null,
-          "collation": null,
-          "enumItems": []
-        },
-        "holder": {
-          "name": "holder",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "unique": false,
-          "length": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "comment": null,
-          "collation": null,
-          "enumItems": []
-        },
-        "id": {
-          "name": "id",
-          "type": "bigint",
-          "unsigned": false,
-          "autoincrement": true,
-          "primary": true,
-          "nullable": false,
-          "unique": false,
-          "length": null,
-          "precision": 64,
-          "scale": 0,
-          "default": null,
-          "comment": null,
-          "collation": null,
-          "enumItems": []
-        },
-        "revocation_nonce": {
-          "name": "revocation_nonce",
-          "type": "bigint",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "unique": false,
-          "length": null,
-          "precision": 64,
-          "scale": 0,
-          "default": null,
-          "comment": null,
-          "collation": null,
-          "enumItems": []
-        },
-        "revoked_at": {
-          "name": "revoked_at",
-          "type": "timestamptz(6)",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": true,
-          "unique": false,
-          "length": 6,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "comment": null,
-          "collation": null,
-          "enumItems": []
-        },
-        "schema_id": {
-          "name": "schema_id",
-          "type": "text",
-          "unsigned": false,
-          "autoincrement": false,
-          "primary": false,
-          "nullable": false,
-          "unique": false,
-          "length": null,
-          "precision": null,
-          "scale": null,
-          "default": null,
-          "comment": null,
-          "collation": null,
-          "enumItems": []
-        }
-      },
-      "indexes": [
-        {
-          "columnNames": [
-            "holder"
-          ],
-          "composite": false,
-          "constraint": false,
-          "keyName": "issuance_history_holder_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "columnNames": [
-            "id"
-          ],
-          "composite": false,
-          "constraint": true,
-          "keyName": "issuance_history_pkey",
-          "primary": true,
-          "unique": true
-        },
-        {
-          "columnNames": [
-            "revocation_nonce"
-          ],
-          "composite": false,
-          "constraint": false,
-          "keyName": "issuance_history_revocation_nonce_index",
-          "primary": false,
-          "unique": false
-        },
-        {
-          "columnNames": [
-            "schema_id"
-          ],
-          "composite": false,
-          "constraint": false,
-          "keyName": "issuance_history_schema_id_index",
-          "primary": false,
-          "unique": false
-        }
-      ],
-      "checks": [],
-      "triggers": [],
-      "foreignKeys": {},
-      "comment": null
-    },
-    {
       "name": "revocation",
       "schema": "public",
       "columns": {
@@ -472,7 +320,8 @@
           "default": "now()",
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "datetime"
         },
         "nonce": {
           "name": "nonce",
@@ -483,12 +332,13 @@
           "nullable": false,
           "unique": false,
           "length": null,
-          "precision": 64,
-          "scale": 0,
+          "precision": null,
+          "scale": null,
           "default": null,
           "comment": null,
           "collation": null,
-          "enumItems": []
+          "enumItems": [],
+          "mappedType": "bigint"
         }
       },
       "indexes": [
