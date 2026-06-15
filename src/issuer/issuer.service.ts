@@ -1,7 +1,7 @@
 import { EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SignJWT, importPKCS8 } from 'jose';
+import { JWTHeaderParameters, SignJWT, importPKCS8 } from 'jose';
 
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
 import { CredentialIssuance } from './entities/credential-issuance.entity';
@@ -19,9 +19,7 @@ export class IssuerService {
 
   private readonly partnerId: string;
   private partnerPrivateKey: CryptoKey;
-  private readonly partnerPrivateKeyDer: string;
-  private readonly partnerPrivateKeyAlg: string;
-  private readonly partnerPrivateKeyKid: string;
+  private readonly partnerPrivateKeyInfo: Record<'der' | 'alg' | 'kid', string>;
   private partnerAuth: { expiry: Date; jwt: string } = { expiry: new Date(0), jwt: '' };
 
   constructor(
@@ -34,9 +32,11 @@ export class IssuerService {
     private readonly credentialIssuingService: CredentialIssuingService,
   ) {
     this.partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
-    this.partnerPrivateKeyDer = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
-    this.partnerPrivateKeyAlg = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_ALG');
-    this.partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
+    this.partnerPrivateKeyInfo = {
+      der: this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER'),
+      alg: this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_ALG'),
+      kid: this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID'),
+    };
 
     this.schemas = schemas;
     schemas.forEach((e) => {
@@ -46,10 +46,10 @@ export class IssuerService {
 
   async onModuleInit() {
     let pkcs8 = '-----BEGIN PRIVATE KEY-----\n';
-    pkcs8 += this.partnerPrivateKeyDer;
+    pkcs8 += this.partnerPrivateKeyInfo.der;
     pkcs8 += '\n-----END PRIVATE KEY-----';
 
-    this.partnerPrivateKey = await importPKCS8(pkcs8, this.partnerPrivateKeyAlg);
+    this.partnerPrivateKey = await importPKCS8(pkcs8, this.partnerPrivateKeyInfo.alg);
   }
 
   async availableVc(
@@ -180,9 +180,15 @@ export class IssuerService {
 
     // TODO: DStorage `scope` jwt payload
     const expiry = new Date(Date.now() + PARTNER_AUTH_EXPIRY_MS);
+    const headers: JWTHeaderParameters = {
+      alg: this.partnerPrivateKeyInfo.alg,
+      kid: this.partnerPrivateKeyInfo.kid,
+    };
     const jwt = await new SignJWT({ partnerId: this.partnerId })
-      .setProtectedHeader({ alg: this.partnerPrivateKeyAlg, kid: this.partnerPrivateKeyKid })
+      .setProtectedHeader(headers)
       .setExpirationTime(expiry)
+      // .setAudience(aud)
+      // .setIssuer(iss)
       .sign(this.partnerPrivateKey);
 
     this.partnerAuth = { expiry, jwt };
