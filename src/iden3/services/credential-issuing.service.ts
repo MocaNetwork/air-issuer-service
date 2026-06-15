@@ -176,7 +176,7 @@ export class CredentialIssuingService {
     info: { partnerJwt: string },
   ) {
     // NOTE: Temporarily placed here just for example integration ease
-    await this.dStorageAPIService.createObject(
+    return await this.dStorageAPIService.createObject(
       {
         holderDid: opts.holderDID,
         schemaId: opts.schemaId,
