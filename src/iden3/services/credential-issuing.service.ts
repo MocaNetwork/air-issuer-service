@@ -21,7 +21,7 @@ import {
   W3CCredential,
 } from '@mocanetwork/privado-js-sdk';
 import { HttpService } from '@nestjs/axios';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { encryptText } from '../../common/utils/encryption';
 import { hexStrToBuffer } from '../../common/utils/string';
@@ -32,7 +32,7 @@ import { Credential } from '../entities/credential.entity';
 import { Revocation } from '../entities/revocation.entity';
 
 @Injectable()
-export class CredentialIssuingService {
+export class CredentialIssuingService implements OnModuleInit {
   private readonly issuerOrigin: string;
   private readonly documentLoader = createDocumentLoader(this.httpService);
   private readonly dataStorage: IDataStorage;
