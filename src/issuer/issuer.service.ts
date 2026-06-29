@@ -102,6 +102,7 @@ export class IssuerService {
       return {
         holderDID: holder.holderDID,
         schemaId: schema.schemaId,
+        expiresAt: credentialIssuance.expiresAt.toISOString(),
         credential: encryptedData,
       };
     });

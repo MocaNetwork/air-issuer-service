@@ -166,6 +166,7 @@ export class CredentialIssuingService implements OnModuleInit {
     opts: {
       holderDID: string;
       schemaId: string;
+      expiresAt: string;
       credential: {
         encryptedData: string;
         iv: string;
@@ -180,6 +181,7 @@ export class CredentialIssuingService implements OnModuleInit {
       {
         holderDid: opts.holderDID,
         schemaId: opts.schemaId,
+        expiresAt: opts.expiresAt,
         data: opts.credential.encryptedData,
         iv: opts.credential.iv,
         authTag: opts.credential.authTag,
