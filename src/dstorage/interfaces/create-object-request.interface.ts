@@ -8,7 +8,7 @@ export interface CreateObjectRequestBody {
 
   schemaId: string;
 
-  expiresAt: string;
+  // expiresAt: string;
 
   /**
    * Base64 Encoded
