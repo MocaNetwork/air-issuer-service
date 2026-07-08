@@ -6,16 +6,33 @@ import { JWTHeaderParameters, SignJWT, importPKCS8 } from 'jose';
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
 import { CredentialIssuance } from './entities/credential-issuance.entity';
 
-import schemas from './schemas';
-import { BaseSchema } from './schemas/base-schema';
+import { encryptText } from '../common/utils/encryption';
+import { hexStrToBuffer } from '../common/utils/string';
+import { DStorageAPIService } from '../dstorage/services/dstorage-api.service';
+import { SdJwtVcService } from '../sd-jwt/services/sd-jwt-vc.service';
+import { PartnerJwtService } from '../services/partner-jwt.service';
+
+import Iden3Schemas from './schemas';
+import { BaseSchema as Iden3BaseSchema } from './schemas/base-schema';
+
+import SdJwtVCSchemas from './sd-jwt-vc-schemas';
+import { BaseSchema as SdJwtVCBaseSchema } from './sd-jwt-vc-schemas/base-schema';
+
+import { ProofType } from './enums/proof-type.enum';
 
 const PARTNER_AUTH_EXPIRY_MS = 15 * 60_000;
 const PARTNER_AUTH_EXPIRY_THRESHOLD_MS = 2 * 60_000;
 
 @Injectable()
 export class IssuerService implements OnModuleInit {
-  private readonly schemaIdMap: { [schemaId: string]: BaseSchema } = {};
-  private readonly schemas: BaseSchema[];
+  private readonly schemas: {
+    [ProofType.BJJ_SIG_2021]: Iden3BaseSchema[];
+    [ProofType.SD_JWT_VC]: SdJwtVCBaseSchema<any>[];
+  };
+  private readonly schemaIdMap: {
+    [ProofType.BJJ_SIG_2021]: { [schemaId: string]: Iden3BaseSchema };
+    [ProofType.SD_JWT_VC]: { [schemaId: string]: SdJwtVCBaseSchema<any> };
+  };
 
   private readonly partnerId: string;
   private partnerPrivateKey: CryptoKey;
@@ -25,11 +42,14 @@ export class IssuerService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly entityManager: EntityManager,
+    private readonly dStorageApiService: DStorageAPIService,
+    private readonly partnerJwtService: PartnerJwtService,
 
     // NOTE: Treat CredentialIssuingService as a separate http service.
     // Intended design is HTTP Interaction. For ease of integration,
     // temporarily exposed the underlying service.
     private readonly credentialIssuingService: CredentialIssuingService,
+    private readonly sdJwtVcService: SdJwtVcService,
   ) {
     this.partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
     this.partnerPrivateKeyInfo = {
@@ -38,9 +58,22 @@ export class IssuerService implements OnModuleInit {
       kid: this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID'),
     };
 
-    this.schemas = schemas;
-    schemas.forEach((e) => {
-      this.schemaIdMap[e.schemaId] = e;
+    this.schemas = {
+      [ProofType.BJJ_SIG_2021]: Iden3Schemas,
+      [ProofType.SD_JWT_VC]: SdJwtVCSchemas,
+    };
+
+    this.schemaIdMap = {
+      [ProofType.BJJ_SIG_2021]: {},
+      [ProofType.SD_JWT_VC]: {},
+    };
+
+    Iden3Schemas.forEach((e) => {
+      this.schemaIdMap[ProofType.BJJ_SIG_2021][e.schemaId] = e;
+    });
+
+    SdJwtVCSchemas.forEach((e) => {
+      this.schemaIdMap[ProofType.SD_JWT_VC][e.schemaId] = e;
     });
   }
 
@@ -54,68 +87,93 @@ export class IssuerService implements OnModuleInit {
 
   async availableVc(
     holder: { userId: string; holderDID: string; pubKey: string },
-    filters?: { schemaId?: string },
+    filters?: { schemaId?: string; proofType?: ProofType },
   ): Promise<object> {
     const VCs: any[] = [];
 
-    for (const schemas of this.schemas) {
-      if (![schemas.schemaId, undefined].includes(filters?.schemaId)) {
+    for (const proofType of Object.keys(this.schemas) as ProofType[]) {
+      console.log(proofType);
+      console.log(filters?.proofType);
+      if (filters?.proofType !== undefined && filters?.proofType !== proofType) {
         continue;
       }
+      for (const schema of this.schemas[proofType]) {
+        if (![schema.schemaId, undefined].includes(filters?.schemaId)) {
+          continue;
+        }
 
-      const { credentialSubject } = await schemas.generateCredentialData(holder.userId);
-      const payload = JSON.stringify(credentialSubject);
-      const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
+        const { credentialSubject } = await schema.generateCredentialData(holder.userId);
+        const payload = JSON.stringify(credentialSubject);
+        const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
 
-      VCs.push({
-        holderDID: holder.holderDID,
-        schemaId: schemas.schemaId,
-        credentialSubject: encryptedData,
-      });
+        VCs.push({
+          holderDID: holder.holderDID,
+          schemaId: schema.schemaId,
+          credentialSubject: encryptedData,
+          proofType,
+        });
+      }
     }
 
     return { data: VCs };
   }
 
-  async issueVc(schemaId: string, holder: { userId: string; holderDID: string; pubKey: string }): Promise<void> {
-    const schema = this.schemaIdMap[schemaId];
-
-    if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
+  async issueVc(
+    schemaId: string,
+    holder: { userId: string; holderDID: string; pubKey: string },
+    proofType?: ProofType,
+  ): Promise<void> {
+    proofType ??= ProofType.BJJ_SIG_2021;
 
     await this.entityManager.transactional(async (em) => {
-      const credential = await schema.issue(holder.userId, {
-        holderDID: holder.holderDID,
-        issue: (opts) => this.credentialIssuingService.issue({ ...opts, em }),
-      });
+      const issued =
+        proofType === ProofType.SD_JWT_VC
+          ? await this.issueSdJwtVc(schemaId, holder)
+          : await this.issueBjjSig(schemaId, holder);
+      const { credential, credentialIssuance, id: credentialId } = issued;
 
       const payload = JSON.stringify(credential);
-      const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
+      const encryptedData = await encryptText(payload, hexStrToBuffer(holder.pubKey), { encoding: 'base64' });
 
-      const credentialIssuance = new CredentialIssuance();
-      credentialIssuance.holderDid = holder.holderDID;
-      credentialIssuance.schemaId = schema.schemaId;
-      credentialIssuance.revocationNonce = credential.credentialStatus.revocationNonce!.toString();
-      credentialIssuance.createdAt = new Date(credential.issuanceDate!);
-      credentialIssuance.expiresAt = new Date(credential.expirationDate!);
-      credentialIssuance.dstorageInfo = null;
-      credentialIssuance.revokedAt = null;
-      credentialIssuance.revokedAt = null;
       await em.persist(credentialIssuance).flush();
 
-      const partnerJwt = await this.generatePartnerJwt();
-      const dstorageInfo = await this.credentialIssuingService.dstorageUpload(
+      const partnerJwt = await this.partnerJwtService.generateJwt({}, {});
+      const dstorageInfo = await this.dStorageApiService.createObject(
         {
-          holderDID: credentialIssuance.holderDid,
-          schemaId: credentialIssuance.schemaId,
+          holderDid: holder.holderDID,
+          schemaId,
           expiresAt: credentialIssuance.expiresAt.toISOString(),
-          credential: encryptedData,
-          externalId: credential.id,
+          data: encryptedData.encryptedData,
+          iv: encryptedData.iv,
+          authTag: encryptedData.authTag,
+          encryptedKey: encryptedData.dataEncPublicKey,
+          externalId: credentialId,
         },
-        { partnerJwt },
+        { 'x-partner-auth': partnerJwt },
       );
       credentialIssuance.dstorageInfo = dstorageInfo.data;
 
       await em.persist(credentialIssuance).flush();
+    });
+  }
+
+  private async issueBjjSig(schemaId: string, holder: { userId: string; holderDID: string }) {
+    const schema = this.schemaIdMap[ProofType.BJJ_SIG_2021][schemaId];
+    if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
+
+    return await schema.issue(holder.userId, {
+      holderDID: holder.holderDID,
+      issuingService: this.credentialIssuingService,
+    });
+  }
+
+  private async issueSdJwtVc(schemaId: string, holder: { userId: string; holderDID: string }) {
+    const schema = this.schemaIdMap[ProofType.SD_JWT_VC][schemaId];
+    if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
+
+    return await schema.issue(holder.userId, {
+      holderDID: holder.holderDID,
+      issuingService: this.sdJwtVcService,
     });
   }
 
@@ -178,6 +236,7 @@ export class IssuerService implements OnModuleInit {
     });
   }
 
+  // TODO: Deprecate
   async generatePartnerJwt(opts?: { email?: string }): Promise<string> {
     const expiryTTL = this.partnerAuth.expiry.getTime() - Date.now();
 

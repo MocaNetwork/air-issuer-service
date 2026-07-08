@@ -170,37 +170,6 @@ export class CredentialIssuingService implements OnModuleInit {
     return await encryptText(text, pubKey, opts);
   }
 
-  async dstorageUpload(
-    opts: {
-      holderDID: string;
-      schemaId: string;
-      expiresAt: string;
-      credential: {
-        encryptedData: string;
-        iv: string;
-        authTag: string;
-        dataEncPublicKey: string;
-      };
-      externalId?: string;
-    },
-    info: { partnerJwt: string },
-  ) {
-    // NOTE: Temporarily placed here just for example integration ease
-    return await this.dStorageAPIService.createObject(
-      {
-        holderDid: opts.holderDID,
-        schemaId: opts.schemaId,
-        // expiresAt: opts.expiresAt,
-        data: opts.credential.encryptedData,
-        iv: opts.credential.iv,
-        authTag: opts.credential.authTag,
-        encryptedKey: opts.credential.dataEncPublicKey,
-        externalId: opts.externalId ?? randomUUID(),
-      },
-      { 'x-partner-auth': info.partnerJwt },
-    );
-  }
-
   private assertSetupState() {
     if (!this.issuerDID) {
       throw new ServiceUnavailableException('Server initializing');

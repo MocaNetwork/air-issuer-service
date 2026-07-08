@@ -22,18 +22,25 @@ export class AppController {
         pubKey: body.pubKey,
         userId: body.userId,
       },
-      { schemaId: body.schemaId },
+      {
+        schemaId: body.schemaId,
+        proofType: body.proofType,
+      },
     );
   }
 
   @UseGuards(ApiKeyGuard)
   @Post('issue-vc')
   async issueVc(@Body() body: IssueVcRequestBodyDto) {
-    return await this.issuerService.issueVc(body.schemaId, {
-      holderDID: body.holderDID,
-      pubKey: body.pubKey,
-      userId: body.userId,
-    });
+    return await this.issuerService.issueVc(
+      body.schemaId,
+      {
+        holderDID: body.holderDID,
+        pubKey: body.pubKey,
+        userId: body.userId,
+      },
+      body.proofType,
+    );
   }
 
   @Get('credential-status/:nonce')

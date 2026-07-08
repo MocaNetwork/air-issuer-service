@@ -1,4 +1,5 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsEnum, IsHexadecimal, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ProofType } from '../enums/proof-type.enum';
 
 export class IssueVcRequestBodyDto {
   @IsString()
@@ -6,6 +7,7 @@ export class IssueVcRequestBodyDto {
   holderDID: string;
 
   @IsString()
+  @IsHexadecimal()
   @IsNotEmpty()
   pubKey: string;
 
@@ -16,4 +18,9 @@ export class IssueVcRequestBodyDto {
   @IsString()
   @IsNotEmpty()
   schemaId: string;
+
+  @IsOptional()
+  @IsEnum(ProofType)
+  @IsNotEmpty()
+  proofType?: ProofType;
 }
