@@ -77,16 +77,17 @@ export class IssuerService {
     return { data: VCs };
   }
 
-  async issueVc(schemaId: string, holder: { userId: string; holderDID: string; pubKey: string }): Promise<object> {
+  async issueVc(schemaId: string, holder: { userId: string; holderDID: string; pubKey: string }): Promise<void> {
     const schema = this.schemaIdMap[schemaId];
 
     if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
 
-    const issuedVC = await this.entityManager.transactional(async (em) => {
+    await this.entityManager.transactional(async (em) => {
       const credential = await schema.issue(holder.userId, {
         holderDID: holder.holderDID,
-        issue: (...args) => this.credentialIssuingService.issue(...args),
+        issue: (opts) => this.credentialIssuingService.issue({ ...opts, em }),
       });
+
       const payload = JSON.stringify(credential);
       const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
 
@@ -96,21 +97,25 @@ export class IssuerService {
       credentialIssuance.revocationNonce = credential.credentialStatus.revocationNonce!.toString();
       credentialIssuance.createdAt = new Date(credential.issuanceDate!);
       credentialIssuance.expiresAt = new Date(credential.expirationDate!);
+      credentialIssuance.dstorageInfo = null;
+      credentialIssuance.revokedAt = null;
       credentialIssuance.revokedAt = null;
       await em.persist(credentialIssuance).flush();
 
-      return {
-        holderDID: holder.holderDID,
-        schemaId: schema.schemaId,
-        expiresAt: credentialIssuance.expiresAt.toISOString(),
-        credential: encryptedData,
-      };
+      const partnerJwt = await this.generatePartnerJwt();
+      const dstorageInfo = await this.credentialIssuingService.dstorageUpload(
+        {
+          holderDID: credentialIssuance.holderDid,
+          schemaId: credentialIssuance.schemaId,
+          expiresAt: credentialIssuance.expiresAt.toISOString(),
+          credential: encryptedData,
+        },
+        { partnerJwt },
+      );
+      credentialIssuance.dstorageInfo = dstorageInfo.data;
+
+      await em.persist(credentialIssuance).flush();
     });
-
-    const partnerJwt = await this.generatePartnerJwt();
-    await this.credentialIssuingService.dstorageUpload(issuedVC, { partnerJwt });
-
-    return issuedVC;
   }
 
   async credentialStatus(nonce: string) {

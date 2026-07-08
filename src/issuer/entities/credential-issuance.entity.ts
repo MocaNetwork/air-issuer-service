@@ -6,6 +6,7 @@ export const CredentialIssuanceSchema = defineEntity({
     id: p.bigint().primary(),
     holderDid: p.text().index(),
     schemaId: p.text().index(),
+    dstorageInfo: p.json().nullable(),
     revocationNonce: p.bigint<'string'>().index(),
     createdAt: p.datetime().defaultRaw('NOW()'),
     expiresAt: p.datetime(),

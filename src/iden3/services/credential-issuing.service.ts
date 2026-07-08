@@ -83,10 +83,13 @@ export class CredentialIssuingService implements OnModuleInit {
     credentialSchema: string;
     type: string;
     merklizedRootPosition: MerklizedRootPosition;
-    credentialSubject: { id: string } & any;
+    credentialSubject: { id: string } & Record<string, any>;
     expiration: number;
+    em?: EntityManager;
   }) {
     this.assertSetupState();
+
+    const em = opts.em ?? this.entityManager;
     const credentialRequest: CredentialRequest = {
       ...opts,
       merklizedRootPosition: MerklizedRootPosition.Value,
@@ -104,12 +107,12 @@ export class CredentialIssuingService implements OnModuleInit {
     const credentialDoc = credential.toJSON();
 
     const credentialRecord = new Credential();
-    credentialRecord.holder = opts.credentialSubject.id as string;
+    credentialRecord.holder = opts.credentialSubject.id;
     credentialRecord.document = credentialDoc;
     credentialRecord.nonce = credentialDoc.credentialStatus.revocationNonce!.toString();
     credentialRecord.createdAt = new Date();
 
-    await this.entityManager.persist(credentialRecord).flush();
+    await em.persist(credentialRecord).flush();
     return credentialDoc;
   }
 

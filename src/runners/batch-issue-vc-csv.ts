@@ -25,7 +25,7 @@ type InitializeUserResponse = {
 };
 
 type BatchIssueVcItem = {
-  credentialSubject: Record<any, any>;
+  credentialSubject: { id: string } & Record<any, any>;
   email: string;
   expiration: number;
 };
@@ -78,7 +78,7 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
     const dstorageResponse = await credentialIssuingService.dstorageUpload(
       {
         credential: encryptedData,
-        holderDID: credentialSubject.id as string,
+        holderDID: credentialSubject.id,
         expiresAt: undefined as unknown as string, // credential.expirationDate!,
         schemaId: id,
       },

@@ -18,7 +18,7 @@ export abstract class BaseSchema {
         credentialSchema: string;
         type: string;
         merklizedRootPosition: MerklizedRootPosition;
-        credentialSubject: { id: string } & any;
+        credentialSubject: { id: string } & Record<string, any>;
         expiration: number;
       }) => Promise<W3CCredential>;
     },
