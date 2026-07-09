@@ -1,5 +1,5 @@
 import { EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JWTHeaderParameters, SignJWT, importPKCS8 } from 'jose';
 
@@ -13,7 +13,7 @@ const PARTNER_AUTH_EXPIRY_MS = 15 * 60_000;
 const PARTNER_AUTH_EXPIRY_THRESHOLD_MS = 2 * 60_000;
 
 @Injectable()
-export class IssuerService {
+export class IssuerService implements OnModuleInit {
   private readonly schemaIdMap: { [schemaId: string]: BaseSchema } = {};
   private readonly schemas: BaseSchema[];
 
