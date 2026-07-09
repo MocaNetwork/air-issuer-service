@@ -127,16 +127,16 @@ export class CredentialIssuingService implements OnModuleInit {
     } = await this.identityWallet.generateNonRevocationMtpWithNonce(this.issuerDID, BigInt(nonce));
 
     return {
-      proof: {
+      mtp: {
         ...proof.toJSON(),
         // NOTE: fake `existence` logic
         existence: await this.isRevoked(nonce),
       },
-      treeState: {
+      issuer: {
         state: state.hex(),
-        claimsRoot: claimsRoot.hex(),
+        claimsTreeRoot: claimsRoot.hex(),
         rootOfRoots: rootOfRoots.hex(),
-        revocationRoot: revocationRoot.hex(),
+        revocationTreeRoot: revocationRoot.hex(),
       },
     };
   }
