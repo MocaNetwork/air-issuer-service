@@ -21,7 +21,7 @@ import {
   W3CCredential,
 } from '@mocanetwork/privado-js-sdk';
 import { HttpService } from '@nestjs/axios';
-import { Injectable, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { encryptText } from '../../common/utils/encryption';
 import { hexStrToBuffer } from '../../common/utils/string';
@@ -33,11 +33,14 @@ import { Revocation } from '../entities/revocation.entity';
 
 @Injectable()
 export class CredentialIssuingService implements OnModuleInit {
+  private readonly logger = new Logger(CredentialIssuingService.name);
+
   private readonly issuerOrigin: string;
   private readonly documentLoader = createDocumentLoader(this.httpService);
   private readonly dataStorage: IDataStorage;
   private readonly credentialWallet: CredentialWallet;
   private readonly identityWallet: IdentityWallet;
+
   private issuerDID: DID;
 
   constructor(
@@ -77,6 +80,7 @@ export class CredentialIssuingService implements OnModuleInit {
       },
     });
     this.issuerDID = issuerIdentity.did;
+    this.logger.log(`Issuer DID: ${this.issuerDID.string()}`);
   }
 
   async issue(opts: {
