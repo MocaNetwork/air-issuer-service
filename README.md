@@ -17,7 +17,7 @@ Can refer to `.env.example` file for example values.
 DATABASE_URL: Postgres URL connection
 ISSUER_ORIGIN: URL Origin of this issuer backend
 MOCA_CHAIN_API_ORIGIN: URL of moca-chain-api origin. <Reach out to AIR Team>
-SEED: 32 byte
+SEED: generate a random 32 byte hex (private info)
 
 PARTNER_ID: UUID of AIR Partner (Issuer)
 PARTNER_PRIVATE_KEY_KID: JWKS KID
@@ -26,6 +26,18 @@ PARTNER_PRIVATE_KEY_DER: Private Key in DER Form
 
 API_KEY: Required key for `x-api-key` header
 ADMIN_API_KEY: Required key for `x-admin-api-key` header
+```
+
+Note: Ensure that a cryptographically secure randomizer is used to generate `SEED`. Such as:
+
+```
+echo 0x`openssl rand -hex 32`
+```
+
+## Extracting Issuer DID
+
+```
+echo 'console.log(get(CredentialIssuingService).issuerDID.string());' | pnpm run repl -
 ```
 
 ## Credential Schema Setup
