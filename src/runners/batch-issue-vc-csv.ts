@@ -81,6 +81,7 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
         holderDID: credentialSubject.id,
         expiresAt: undefined as unknown as string, // credential.expirationDate!,
         schemaId: id,
+        externalId: credential.id,
       },
       { partnerJwt },
     );

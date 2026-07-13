@@ -109,6 +109,7 @@ export class IssuerService {
           schemaId: credentialIssuance.schemaId,
           expiresAt: credentialIssuance.expiresAt.toISOString(),
           credential: encryptedData,
+          externalId: credential.id,
         },
         { partnerJwt },
       );

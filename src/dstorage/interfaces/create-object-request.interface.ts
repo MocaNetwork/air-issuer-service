@@ -29,6 +29,8 @@ export interface CreateObjectRequestBody {
    * Base64 Encoded
    */
   encryptedKey: string;
+
+  externalId: string;
 }
 
 export interface CreateObjectResponseBody {

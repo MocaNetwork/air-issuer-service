@@ -19,7 +19,7 @@ export class DStorageAPIService {
   ) {}
 
   async createObject(data: CreateObjectRequestBody, headers: CreateObjectRequestHeader) {
-    const url = `${this.mocaChainApiOrigin}/v1/dstorage/objects`;
+    const url = `${this.mocaChainApiOrigin}/v1/dstorage/vcs`;
     const response = await this.axiosRef.post<CreateObjectResponseBody>(url, data, {
       headers: { ...headers },
     });

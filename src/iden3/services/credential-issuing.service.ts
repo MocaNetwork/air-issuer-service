@@ -23,6 +23,7 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomUUID } from 'node:crypto';
 import { encryptText } from '../../common/utils/encryption';
 import { hexStrToBuffer } from '../../common/utils/string';
 import { createDocumentLoader } from '../lib/document-loader';
@@ -180,6 +181,7 @@ export class CredentialIssuingService implements OnModuleInit {
         authTag: string;
         dataEncPublicKey: string;
       };
+      externalId?: string;
     },
     info: { partnerJwt: string },
   ) {
@@ -193,6 +195,7 @@ export class CredentialIssuingService implements OnModuleInit {
         iv: opts.credential.iv,
         authTag: opts.credential.authTag,
         encryptedKey: opts.credential.dataEncPublicKey,
+        externalId: opts.externalId ?? randomUUID(),
       },
       { 'x-partner-auth': info.partnerJwt },
     );
