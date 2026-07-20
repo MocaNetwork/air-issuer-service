@@ -1,7 +1,5 @@
-import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import mikroOrmConfig from './mikro-orm.config';
 
 import { DStorageModule } from './dstorage/dstorage.module';
 import { HttpModule } from './dynamic-modules/http-module';
@@ -13,7 +11,6 @@ import { AppController } from './app.controller';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
-    MikroOrmModule.forRoot(mikroOrmConfig),
 
     DStorageModule,
     HttpModule,

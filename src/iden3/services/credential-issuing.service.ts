@@ -1,4 +1,3 @@
-import { EntityManager } from '@mikro-orm/postgresql';
 import { Blockchain, DID, DidMethod, NetworkId } from '@mocanetwork/moca-iden3';
 import {
   BjjProvider,
@@ -29,8 +28,6 @@ import { hexStrToBuffer } from '../../common/utils/string';
 import { createDocumentLoader } from '../lib/document-loader';
 
 import { DStorageAPIService } from '../../dstorage/services/dstorage-api.service';
-import { Credential } from '../entities/credential.entity';
-import { Revocation } from '../entities/revocation.entity';
 
 @Injectable()
 export class CredentialIssuingService implements OnModuleInit {
@@ -48,7 +45,6 @@ export class CredentialIssuingService implements OnModuleInit {
     private readonly configService: ConfigService,
     private readonly dStorageAPIService: DStorageAPIService,
     private readonly httpService: HttpService,
-    private readonly entityManager: EntityManager,
   ) {
     this.issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN').trim().replace(/\/+$/, '');
     this.dataStorage = {
@@ -90,11 +86,9 @@ export class CredentialIssuingService implements OnModuleInit {
     merklizedRootPosition: MerklizedRootPosition;
     credentialSubject: { id: string } & Record<string, any>;
     expiration: number;
-    em?: EntityManager;
   }) {
     this.assertSetupState();
 
-    const em = opts.em ?? this.entityManager;
     const credentialRequest: CredentialRequest = {
       ...opts,
       merklizedRootPosition: MerklizedRootPosition.Value,
@@ -111,13 +105,6 @@ export class CredentialIssuingService implements OnModuleInit {
 
     const credentialDoc = credential.toJSON();
 
-    const credentialRecord = new Credential();
-    credentialRecord.holder = opts.credentialSubject.id;
-    credentialRecord.document = credentialDoc;
-    credentialRecord.nonce = credentialDoc.credentialStatus.revocationNonce!.toString();
-    credentialRecord.createdAt = new Date();
-
-    await em.persist(credentialRecord).flush();
     return credentialDoc;
   }
 
@@ -146,22 +133,10 @@ export class CredentialIssuingService implements OnModuleInit {
     };
   }
 
-  async revoke(nonce: string) {
-    this.assertSetupState();
-
-    const existing = await this.entityManager.findOne(Revocation, { nonce });
-    if (existing) return existing;
-
-    const revocation = new Revocation();
-    revocation.nonce = nonce;
-    revocation.createdAt = new Date();
-    await this.entityManager.persist(revocation).flush();
-
-    return revocation;
-  }
+  async revoke(nonce: string) {}
 
   async isRevoked(nonce: string): Promise<boolean> {
-    return await this.entityManager.count(Revocation, { nonce }).then((e) => e > 0);
+    return Promise.resolve(false);
   }
 
   async encrypt(text: string, pubKeyHexString: string, opts?: { encoding: 'hex' | 'base64' }) {
