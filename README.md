@@ -18,7 +18,7 @@ Optional: use [direct issuance (CSV)](#direct-issuance-issue-on-behalf) for bulk
 
 | Area                                                                      | Why                                                                  |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `POST /available-vc` / `POST /issue-vc` request/response shapes           | Called by credential-api; breaking them breaks the holder claim flow |
+| `POST /available-vc` / `POST /issue-vc` request/response shapes           | Called by AIR API; breaking them breaks the holder claim flow |
 | Encryption of `credentialSubject` / issued VCs with the holder's `pubKey` | Only the holder's client can decrypt                                 |
 | `GET /credential-status/:nonce` URL under `ISSUER_ORIGIN`                 | Embedded in issued credentials for revocation checks                 |
 | Partner JWT signing (`PARTNER_PRIVATE_KEY_`*)                             | Used for dstorage and AIR auth                                       |
@@ -143,7 +143,7 @@ export default schemas;
 
 ## HTTP API
 
-### Holder-facing (called by credential-api)
+### Holder-facing (called by AIR API)
 
 Auth: `x-api-key: <API_KEY>` (optional on the AIR side if no `issuerBackendApiKey` is configured; if you set `API_KEY` here, configure the same value with AIR).
 
@@ -231,7 +231,11 @@ After deploy:
   - `issuerBackendApiKey` — same value as `API_KEY` (optional but recommended)
 3. Register issuer DID + schemas in Credential Dashboard / AIR partner setup (`PARTNER_ID`, JWKS / `PARTNER_PRIVATE_KEY_*`).
 
-credential-api resolves the holder, then POSTs to your URLs. Misconfigured or unreachable URLs surface as issuer-backend unavailable to the holder.
+AIR API resolves the holder, then POSTs to your URLs. Misconfigured or unreachable URLs surface as issuer-backend unavailable to the holder.
+
+### CORS
+
+If you enable CORS on this backend (or on a reverse proxy in front of it), whitelist `*.air3.com` so AIR frontends can call your issuer endpoints from the browser. Restricting origins to only your own domain will break the holder claim flow.
 
 ## Compile and run
 
@@ -303,5 +307,6 @@ Result log: `[unix_timestamp_ms].csv`.
 - [ ] `generateCredentialData` returns schema-valid subjects and sensible expirations
 - [ ] Migrations applied; Postgres durable
 - [ ] `ISSUER_ORIGIN` is public HTTPS; status endpoints reachable
+- [ ] If CORS is enabled, `*.air3.com` is whitelisted
 - [ ] `availableVcApiUrl` / `issueVcApiUrl` / `issuerBackendApiKey` set in AIR partner config
 - [ ] Smoke-test claim flow end-to-end with a test holder
