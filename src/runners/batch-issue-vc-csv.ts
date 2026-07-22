@@ -94,6 +94,7 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
         result.push([email, axiosData?.message]);
       } else {
         result.push([email, `${error.name}: ${error.message}`]);
+        console.error(error);
       }
     }
   }

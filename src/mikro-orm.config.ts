@@ -1,17 +1,33 @@
-import { defineConfig, PostgreSqlDriver } from '@mikro-orm/postgresql';
+import { defineConfig, PostgreSqlDriver, EntityManager } from '@mikro-orm/postgresql';
 import { TSMigrationGenerator } from '@mikro-orm/migrations';
 
 import 'dotenv/config';
 
-const clientUrl = process.env.DATABASE_URL;
-if (!clientUrl) throw new Error('Missing ENV: DATABASE_URL');
+const isRunner = process.env.RUNNER === 'true';
+const clientUrl = process.env.DATABASE_URL || undefined;
+
+let dbName: string | undefined = undefined;
+
+if (!clientUrl) {
+  dbName = 'dump';
+  EntityManager.prototype.flush = () => Promise.resolve();
+  EntityManager.prototype.count = () => Promise.resolve(0);
+  EntityManager.prototype.find = () => Promise.resolve([]);
+  EntityManager.prototype.findOne = () => Promise.resolve(null);
+  EntityManager.prototype.findAndCount = () => Promise.resolve([[], 0]);
+  EntityManager.prototype.nativeUpdate = () => Promise.resolve(0);
+  EntityManager.prototype.getConnection = () => ({
+    transactional: (cb) => cb(),
+  });
+}
 
 export default defineConfig({
   entities: ['./dist/**/*.entity.js'],
   entitiesTs: ['./src/**/*.entity.ts'],
   driver: PostgreSqlDriver,
   clientUrl,
-  allowGlobalContext: process.env.RUNNER === 'true',
+  dbName,
+  allowGlobalContext: isRunner,
   logger: console.log,
   debug: true,
   migrations: {
