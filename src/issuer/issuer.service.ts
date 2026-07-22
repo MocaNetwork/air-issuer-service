@@ -1,10 +1,9 @@
-import { EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql';
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JWTHeaderParameters, SignJWT, importPKCS8 } from 'jose';
 
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
-import { CredentialIssuance } from './entities/credential-issuance.entity';
+import { PersistenceService } from '../persistence/persistence.service';
 
 import schemas from './schemas';
 import { BaseSchema } from './schemas/base-schema';
@@ -24,7 +23,7 @@ export class IssuerService implements OnModuleInit {
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly entityManager: EntityManager,
+    private readonly persistence: PersistenceService,
 
     // NOTE: Treat CredentialIssuingService as a separate http service.
     // Intended design is HTTP Interaction. For ease of integration,
@@ -82,40 +81,39 @@ export class IssuerService implements OnModuleInit {
 
     if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
 
-    await this.entityManager.transactional(async (em) => {
+    await this.persistence.runInTransaction(async () => {
       const credential = await schema.issue(holder.userId, {
         holderDID: holder.holderDID,
-        issue: (opts) => this.credentialIssuingService.issue({ ...opts, em }),
+        issue: (opts) => this.credentialIssuingService.issue({ ...opts }),
       });
 
       const payload = JSON.stringify(credential);
       const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
 
-      const credentialIssuance = new CredentialIssuance();
-      credentialIssuance.holderDid = holder.holderDID;
-      credentialIssuance.schemaId = schema.schemaId;
-      credentialIssuance.revocationNonce = credential.credentialStatus.revocationNonce!.toString();
-      credentialIssuance.createdAt = new Date(credential.issuanceDate!);
-      credentialIssuance.expiresAt = new Date(credential.expirationDate!);
-      credentialIssuance.dstorageInfo = null;
-      credentialIssuance.revokedAt = null;
-      credentialIssuance.revokedAt = null;
-      await em.persist(credentialIssuance).flush();
+      const revocationNonce = credential.credentialStatus.revocationNonce!.toString();
+      const expiresAt = new Date(credential.expirationDate!);
+
+      await this.persistence.createIssuance({
+        holderDid: holder.holderDID,
+        schemaId: schema.schemaId,
+        revocationNonce,
+        createdAt: new Date(credential.issuanceDate!),
+        expiresAt,
+      });
 
       const partnerJwt = await this.generatePartnerJwt();
       const dstorageInfo = await this.credentialIssuingService.dstorageUpload(
         {
-          holderDID: credentialIssuance.holderDid,
-          schemaId: credentialIssuance.schemaId,
-          expiresAt: credentialIssuance.expiresAt.toISOString(),
+          holderDID: holder.holderDID,
+          schemaId: schema.schemaId,
+          expiresAt: expiresAt.toISOString(),
           credential: encryptedData,
           externalId: credential.id,
         },
         { partnerJwt },
       );
-      credentialIssuance.dstorageInfo = dstorageInfo.data;
 
-      await em.persist(credentialIssuance).flush();
+      await this.persistence.updateIssuanceDstorageInfo(revocationNonce, dstorageInfo.data);
     });
   }
 
@@ -131,39 +129,7 @@ export class IssuerService implements OnModuleInit {
     schemaId?: string;
     revocationNonce?: string;
   }) {
-    const page = query.page ?? 1;
-    const limit = query.limit ?? 25;
-    const [orderKey, orderDirection] = (query.order ?? 'id_asc').split(/_(?=asc|desc$)/);
-
-    const filters: FilterQuery<NoInfer<CredentialIssuance>> = {};
-
-    if (query.holderDid !== undefined) filters.holderDid = query.holderDid;
-    if (query.schemaId !== undefined) filters.schemaId = query.schemaId;
-    if (query.revocationNonce !== undefined) filters.revocationNonce = query.revocationNonce;
-
-    const findOptions: FindOptions<CredentialIssuance> = {
-      limit,
-      offset: (page - 1) * limit,
-      orderBy: { [orderKey]: orderDirection },
-    };
-
-    const [records, total] = await this.entityManager.findAndCount(CredentialIssuance, filters, findOptions);
-    const data = records.map((e) => {
-      return {
-        holderDid: e.holderDid,
-        schemaId: e.schemaId,
-        revocationNonce: e.revocationNonce.toString(),
-        createdAt: e.createdAt.toISOString(),
-        expiresAt: e.expiresAt.toISOString(),
-        revokedAt: e.revokedAt?.toISOString() ?? null,
-        type: 'bjj',
-      };
-    });
-
-    return {
-      data,
-      pagination: { page, limit, total },
-    };
+    return this.persistence.issuanceHistory(query);
   }
 
   async revocationStatus(nonce: string) {
@@ -172,9 +138,9 @@ export class IssuerService implements OnModuleInit {
   }
 
   async revoke(revocationNonce: string): Promise<void> {
-    await this.entityManager.transactional(async (em) => {
+    await this.persistence.runInTransaction(async () => {
       const revocation = await this.credentialIssuingService.revoke(revocationNonce);
-      await em.nativeUpdate(CredentialIssuance, { revocationNonce }, { revokedAt: revocation.createdAt });
+      await this.persistence.markIssuanceRevoked(revocationNonce, revocation.createdAt);
     });
   }
 

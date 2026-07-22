@@ -6,7 +6,7 @@ Self-hosted NestJS service for partners who issue AIR credentials. AIR's credent
 
 Most of the crypto, encryption, dstorage upload, and revocation plumbing is already wired. As an issuer partner you mainly:
 
-1. **Configure partner identity** — env vars for Postgres, `SEED`, partner JWT signing key, and API keys (see [Environment](#environment)).
+1. **Configure partner identity** — env vars for optional Postgres (`ENABLE_DATABASE`), `SEED`, partner JWT signing key, and API keys (see [Environment](#environment)).
 2. **Register one schema class per credential type** — map a Credential Dashboard schema to a `BaseSchema` subclass that decides *whether* and *what* to issue for a given `userId` (see [Credential schemas](#credential-schemas)).
 3. **Deploy this service** — expose the public HTTP API, then give AIR your `availableVcApiUrl`, `issueVcApiUrl`, and optional `issuerBackendApiKey` (see [Register with AIR](#register-with-air)).
 4. **Register your issuer DID** — after first boot, extract the DID derived from `SEED` and register it with the AIR team / Credential Dashboard (see [Extract issuer DID](#extract-issuer-did)).
@@ -39,7 +39,7 @@ Holder identity (`holderDID`, `pubKey`, `userId`) is always supplied by AIR — 
 
 ```bash
 pnpm install
-npx mikro-orm migration:up   # or ./bin/migration-up
+npx mikro-orm migration:up   # or ./bin/migration-up (skip when ENABLE_DATABASE=false)
 ```
 
 ## Environment
@@ -49,7 +49,8 @@ See `.env.example` for sample values.
 
 | Variable                  | Purpose                                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | Postgres connection URL                                                                                 |
+| `ENABLE_DATABASE`         | `true` (default) to persist credentials/issuance/revocations in Postgres; `false` for dstorage-only    |
+| `DATABASE_URL`            | Postgres connection URL (required when `ENABLE_DATABASE` is not `false`)                                |
 | `ISSUER_ORIGIN`           | Public origin of **this** service (no trailing slash). Used in credential status URLs                   |
 | `AIR_API_ORIGIN`          | AIR API origin (batch issue / initialize-user). Reach out to AIR team                                   |
 | `MOCA_CHAIN_API_ORIGIN`   | Moca chain API origin. Reach out to AIR team                                                            |
@@ -305,7 +306,7 @@ Result log: `[unix_timestamp_ms].csv`.
 - [ ] Partner JWT keys (`PARTNER_*`) match AIR JWKS
 - [ ] Each Credential Dashboard schema has a matching class in `src/issuer/schemas/` and is exported from `index.ts`
 - [ ] `generateCredentialData` returns schema-valid subjects and sensible expirations
-- [ ] Migrations applied; Postgres durable
+- [ ] If `ENABLE_DATABASE=true`: migrations applied and Postgres durable (required for revoke / issuance-history)
 - [ ] `ISSUER_ORIGIN` is public HTTPS; status endpoints reachable
 - [ ] If CORS is enabled, `*.air3.com` is whitelisted
 - [ ] `availableVcApiUrl` / `issueVcApiUrl` / `issuerBackendApiKey` set in AIR partner config
