@@ -1,13 +1,14 @@
 import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { timingSafeEqual } from 'node:crypto';
 import { Observable } from 'rxjs';
 
 @Injectable()
 export class ApiKeyGuard implements CanActivate {
-  private readonly apiKey: string;
+  private readonly apiKey: Buffer<ArrayBuffer>;
 
   constructor(private readonly configService: ConfigService) {
-    this.apiKey = configService.getOrThrow<string>('API_KEY');
+    this.apiKey = Buffer.from(configService.getOrThrow<string>('API_KEY'));
   }
 
   canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
@@ -15,10 +16,18 @@ export class ApiKeyGuard implements CanActivate {
     return this.validateRequest(request);
   }
 
-  validateRequest(request: any) {
-    const key = request.headers?.['x-api-key'];
+  validateRequest(request: any): boolean {
+    const key: string = request.headers?.['x-api-key'] ?? '';
+    const actualKey = Buffer.from(key);
 
-    if (key !== this.apiKey) throw new ForbiddenException();
+    if (actualKey.length !== this.apiKey.length) {
+      timingSafeEqual(this.apiKey, this.apiKey);
+      throw new ForbiddenException();
+    }
+
+    if (!timingSafeEqual(actualKey, this.apiKey)) {
+      throw new ForbiddenException();
+    }
 
     return true;
   }
