@@ -2,6 +2,7 @@ import { MerklizedRootPosition } from '@mocanetwork/privado-js-sdk';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { AxiosError } from 'axios';
 import { parse, stringify } from 'csv/sync';
 import fs from 'fs';
 import _ from 'lodash';
@@ -50,42 +51,51 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
   const AIR_API_ORIGIN: string = configService.getOrThrow('AIR_API_ORIGIN');
 
   for (const { credentialSubject, email, expiration } of items) {
-    const partnerJwt = await issuerService.generatePartnerJwt({ email });
-    const identity = await axiosRef
-      .post<InitializeUserResponse>(
-        `${AIR_API_ORIGIN}/v2/auth/initialize-user`,
-        { partnerJwt },
-        { headers: { 'x-partner-id': PARTNER_ID } },
-      )
-      .then((e) => e.data);
-    if (!identity.did || !identity.publicKey) {
-      result.push([email, 'Unable to resolve user']);
-      console.error(`Unable to resolve user: ${email}`);
-      continue;
-    }
-    const { did, publicKey } = identity;
-    credentialSubject.id = did;
+    try {
+      const partnerJwt = await issuerService.generatePartnerJwt({ email });
+      const identity = await axiosRef
+        .post<InitializeUserResponse>(
+          `${AIR_API_ORIGIN}/v2/auth/initialize-user`,
+          { partnerJwt },
+          { headers: { 'x-partner-id': PARTNER_ID } },
+        )
+        .then((e) => e.data);
+      if (!identity.did || !identity.publicKey) {
+        result.push([email, 'Unable to resolve user']);
+        console.error(`Unable to resolve user: ${email}`);
+        continue;
+      }
+      const { did, publicKey } = identity;
+      credentialSubject.id = did;
 
-    const credential = await credentialIssuingService.issue({
-      credentialSchema: url,
-      credentialSubject,
-      expiration,
-      merklizedRootPosition: MerklizedRootPosition.Value,
-      type,
-    });
-    const data = JSON.stringify(credential);
-    const encryptedData = await credentialIssuingService.encrypt(data, publicKey, { encoding: 'base64' });
-    const dstorageResponse = await credentialIssuingService.dstorageUpload(
-      {
-        credential: encryptedData,
-        holderDID: credentialSubject.id,
-        expiresAt: undefined as unknown as string, // credential.expirationDate!,
-        schemaId: id,
-        externalId: credential.id,
-      },
-      { partnerJwt },
-    );
-    result.push([email, dstorageResponse.data.storagePath]);
+      const credential = await credentialIssuingService.issue({
+        credentialSchema: url,
+        credentialSubject,
+        expiration,
+        merklizedRootPosition: MerklizedRootPosition.Value,
+        type,
+      });
+      const data = JSON.stringify(credential);
+      const encryptedData = await credentialIssuingService.encrypt(data, publicKey, { encoding: 'base64' });
+      const dstorageResponse = await credentialIssuingService.dstorageUpload(
+        {
+          credential: encryptedData,
+          holderDID: credentialSubject.id,
+          expiresAt: undefined as unknown as string, // credential.expirationDate!,
+          schemaId: id,
+          externalId: credential.id,
+        },
+        { partnerJwt },
+      );
+      result.push([email, dstorageResponse.data.storagePath]);
+    } catch (error: any) {
+      const axiosData = error.response?.data;
+      if (axiosData?.message === 'Invalid email address') {
+        result.push([email, axiosData?.message]);
+      } else {
+        result.push([email, `${error.name}: ${error.message}`]);
+      }
+    }
   }
 
   return result;
