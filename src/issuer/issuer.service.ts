@@ -1,7 +1,5 @@
 import { EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql';
-import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JWTHeaderParameters, SignJWT, importPKCS8 } from 'jose';
+import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
 import { CredentialIssuance } from './entities/credential-issuance.entity';
@@ -20,11 +18,8 @@ import { BaseSchema as SdJwtVCBaseSchema } from './sd-jwt-vc-schemas/base-schema
 
 import { ProofType } from './enums/proof-type.enum';
 
-const PARTNER_AUTH_EXPIRY_MS = 15 * 60_000;
-const PARTNER_AUTH_EXPIRY_THRESHOLD_MS = 2 * 60_000;
-
 @Injectable()
-export class IssuerService implements OnModuleInit {
+export class IssuerService {
   private readonly schemas: {
     [ProofType.BJJ_SIG_2021]: Iden3BaseSchema[];
     [ProofType.SD_JWT_VC]: SdJwtVCBaseSchema<any>[];
@@ -34,13 +29,7 @@ export class IssuerService implements OnModuleInit {
     [ProofType.SD_JWT_VC]: { [schemaId: string]: SdJwtVCBaseSchema<any> };
   };
 
-  private readonly partnerId: string;
-  private partnerPrivateKey: CryptoKey;
-  private readonly partnerPrivateKeyInfo: Record<'der' | 'alg' | 'kid', string>;
-  private partnerAuth: { expiry: Date; jwt: string } = { expiry: new Date(0), jwt: '' };
-
   constructor(
-    private readonly configService: ConfigService,
     private readonly entityManager: EntityManager,
     private readonly dStorageApiService: DStorageAPIService,
     private readonly partnerJwtService: PartnerJwtService,
@@ -51,13 +40,6 @@ export class IssuerService implements OnModuleInit {
     private readonly credentialIssuingService: CredentialIssuingService,
     private readonly sdJwtVcService: SdJwtVcService,
   ) {
-    this.partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
-    this.partnerPrivateKeyInfo = {
-      der: this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER'),
-      alg: this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_ALG'),
-      kid: this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID'),
-    };
-
     this.schemas = {
       [ProofType.BJJ_SIG_2021]: Iden3Schemas,
       [ProofType.SD_JWT_VC]: SdJwtVCSchemas,
@@ -75,14 +57,6 @@ export class IssuerService implements OnModuleInit {
     SdJwtVCSchemas.forEach((e) => {
       this.schemaIdMap[ProofType.SD_JWT_VC][e.schemaId] = e;
     });
-  }
-
-  async onModuleInit() {
-    let pkcs8 = '-----BEGIN PRIVATE KEY-----\n';
-    pkcs8 += this.partnerPrivateKeyInfo.der;
-    pkcs8 += '\n-----END PRIVATE KEY-----';
-
-    this.partnerPrivateKey = await importPKCS8(pkcs8, this.partnerPrivateKeyInfo.alg);
   }
 
   async availableVc(
@@ -104,7 +78,9 @@ export class IssuerService implements OnModuleInit {
 
         const { credentialSubject } = await schema.generateCredentialData(holder.userId);
         const payload = JSON.stringify(credentialSubject);
-        const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, { encoding: 'base64' });
+        const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, {
+          encoding: 'base64',
+        });
 
         VCs.push({
           holderDID: holder.holderDID,
@@ -234,30 +210,5 @@ export class IssuerService implements OnModuleInit {
       const revocation = await this.credentialIssuingService.revoke(revocationNonce);
       await em.nativeUpdate(CredentialIssuance, { revocationNonce }, { revokedAt: revocation.createdAt });
     });
-  }
-
-  // TODO: Deprecate
-  async generatePartnerJwt(opts?: { email?: string }): Promise<string> {
-    const expiryTTL = this.partnerAuth.expiry.getTime() - Date.now();
-
-    if (expiryTTL > PARTNER_AUTH_EXPIRY_THRESHOLD_MS && opts?.email === undefined) {
-      return this.partnerAuth.jwt;
-    }
-
-    // TODO: DStorage `scope` jwt payload
-    const expiry = new Date(Date.now() + PARTNER_AUTH_EXPIRY_MS);
-    const headers: JWTHeaderParameters = {
-      alg: this.partnerPrivateKeyInfo.alg,
-      kid: this.partnerPrivateKeyInfo.kid,
-    };
-    const jwt = await new SignJWT({ partnerId: this.partnerId, email: opts?.email })
-      .setProtectedHeader(headers)
-      .setExpirationTime(expiry)
-      // .setAudience(aud)
-      // .setIssuer(iss)
-      .sign(this.partnerPrivateKey);
-
-    this.partnerAuth = { expiry, jwt };
-    return jwt;
   }
 }

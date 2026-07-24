@@ -2,15 +2,18 @@ import { MerklizedRootPosition } from '@mocanetwork/privado-js-sdk';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
-import { AxiosError } from 'axios';
 import { parse, stringify } from 'csv/sync';
 import fs from 'fs';
 import _ from 'lodash';
 
 import { AppModule } from '../app.module';
 
+import { DStorageAPIService } from '../dstorage/services/dstorage-api.service';
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
-import { IssuerService } from '../issuer/issuer.service';
+import { PartnerJwtService } from '../services/partner-jwt.service';
+
+import { encryptText } from '../common/utils/encryption';
+import { hexStrToBuffer } from '../common/utils/string';
 
 type CredentialType = {
   id: string;
@@ -43,16 +46,17 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
   await app.init();
 
   const credentialIssuingService = app.get(CredentialIssuingService);
-  const issuerService = app.get(IssuerService);
   const axiosRef = app.get(HttpService).axiosRef;
   const configService = app.get(ConfigService);
+  const dStorageApiService = app.get(DStorageAPIService);
+  const partnerJwtService = app.get(PartnerJwtService);
 
   const PARTNER_ID: string = configService.getOrThrow('PARTNER_ID');
   const AIR_API_ORIGIN: string = configService.getOrThrow('AIR_API_ORIGIN');
 
   for (const { credentialSubject, email, expiration } of items) {
     try {
-      const partnerJwt = await issuerService.generatePartnerJwt({ email });
+      const partnerJwt = await partnerJwtService.generateJwt({ email }, {});
       const identity = await axiosRef
         .post<InitializeUserResponse>(
           `${AIR_API_ORIGIN}/v2/auth/initialize-user`,
@@ -76,16 +80,19 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
         type,
       });
       const data = JSON.stringify(credential);
-      const encryptedData = await credentialIssuingService.encrypt(data, publicKey, { encoding: 'base64' });
-      const dstorageResponse = await credentialIssuingService.dstorageUpload(
+      const encryptedData = await encryptText(data, hexStrToBuffer(publicKey), { encoding: 'base64' });
+      const dstorageResponse = await dStorageApiService.createObject(
         {
-          credential: encryptedData,
-          holderDID: credentialSubject.id,
-          expiresAt: undefined as unknown as string, // credential.expirationDate!,
+          holderDid: identity.did,
           schemaId: id,
+          expiresAt: new Date(expiration * 1_000).toISOString(),
+          data: encryptedData.encryptedData,
+          iv: encryptedData.iv,
+          authTag: encryptedData.authTag,
+          encryptedKey: encryptedData.dataEncPublicKey,
           externalId: credential.id,
         },
-        { partnerJwt },
+        { 'x-partner-auth': partnerJwt },
       );
       result.push([email, dstorageResponse.data.storagePath]);
     } catch (error: any) {
