@@ -42,6 +42,10 @@ export class CredentialIssuingService implements OnModuleInit {
   private readonly credentialWallet: CredentialWallet;
   private readonly identityWallet: IdentityWallet;
 
+  private readonly method: (typeof DidMethod)[string];
+  private readonly blockchain: (typeof Blockchain)[string];
+  private readonly networkId: (typeof NetworkId)[string];
+
   private issuerDID: DID;
 
   constructor(
@@ -50,6 +54,10 @@ export class CredentialIssuingService implements OnModuleInit {
     private readonly httpService: HttpService,
     private readonly entityManager: EntityManager,
   ) {
+    this.method = this.configService.get('IDEN3_METHOD') ?? DidMethod.Air;
+    this.blockchain = this.configService.get('IDEN3_BLOCKCHAIN') ?? Blockchain.Id;
+    this.networkId = this.configService.get('IDEN3_NETWORK_ID') ?? NetworkId.Testnet;
+
     this.issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN').trim().replace(/\/+$/, '');
     this.dataStorage = {
       credential: new CredentialStorage(new InMemoryDataSource<W3CCredential>()),
@@ -69,9 +77,9 @@ export class CredentialIssuingService implements OnModuleInit {
   async onModuleInit() {
     const seed = this.configService.getOrThrow<string>('SEED');
     const issuerIdentity = await this.identityWallet.createIdentity({
-      method: DidMethod.Air,
-      blockchain: Blockchain.Id,
-      networkId: NetworkId.Testnet,
+      method: this.method,
+      blockchain: this.blockchain,
+      networkId: this.networkId,
       seed: hexStrToBuffer(seed),
       revocationOpts: {
         type: CredentialStatusType.SparseMerkleTreeProof,
