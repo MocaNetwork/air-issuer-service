@@ -45,3 +45,9 @@ export interface CreateObjectResponseBody {
    */
   createdAt: string;
 }
+
+export interface CreateObjectResult {
+  status: number;
+  headers: Record<string, unknown>;
+  data: CreateObjectResponseBody;
+}

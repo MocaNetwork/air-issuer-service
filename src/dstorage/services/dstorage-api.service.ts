@@ -6,6 +6,7 @@ import {
   CreateObjectRequestBody,
   CreateObjectRequestHeader,
   CreateObjectResponseBody,
+  CreateObjectResult,
 } from '../interfaces/create-object-request.interface';
 
 @Injectable()
@@ -18,7 +19,7 @@ export class DStorageAPIService {
     private readonly httpService: HttpService,
   ) {}
 
-  async createObject(data: CreateObjectRequestBody, headers: CreateObjectRequestHeader) {
+  async createObject(data: CreateObjectRequestBody, headers: CreateObjectRequestHeader): Promise<CreateObjectResult> {
     const url = `${this.mocaChainApiOrigin}/v1/dstorage/vcs`;
     const response = await this.axiosRef.post<CreateObjectResponseBody>(url, data, {
       headers: { ...headers },
