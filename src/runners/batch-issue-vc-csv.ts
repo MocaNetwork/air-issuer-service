@@ -6,14 +6,13 @@ import { parse, stringify } from 'csv/sync';
 import fs from 'fs';
 import _ from 'lodash';
 
-import { AppModule } from '../app.module';
-
 import { DStorageAPIService } from '../dstorage/services/dstorage-api.service';
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
 import { PartnerJwtService } from '../services/partner-jwt.service';
 
 import { encryptText } from '../common/utils/encryption';
 import { hexStrToBuffer } from '../common/utils/string';
+import { BatchIssueModule } from './batch-issue.module';
 
 type CredentialType = {
   id: string;
@@ -42,7 +41,7 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
     return [];
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(BatchIssueModule);
   await app.init();
 
   const credentialIssuingService = app.get(CredentialIssuingService);
