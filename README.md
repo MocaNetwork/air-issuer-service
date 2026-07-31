@@ -6,7 +6,7 @@ Self-hosted NestJS service for partners who issue AIR credentials. AIR's credent
 
 Most of the crypto, encryption, dstorage upload, and revocation plumbing is already wired. As an issuer partner you mainly:
 
-1. **Configure partner identity** — env vars for Postgres, `SEED`, partner JWT signing key, and API keys (see [Environment](#environment)).
+1. **Configure partner identity** — env vars for `SEED`, partner JWT signing key, and API keys (optional Postgres — see [Environment](#environment)).
 2. **Register one schema class per credential type** — map a Credential Dashboard schema to a `BaseSchema` subclass that decides *whether* and *what* to issue for a given `userId` (see [Credential schemas](#credential-schemas)).
 3. **Deploy this service** — expose the public HTTP API, then give AIR your `availableVcApiUrl`, `issueVcApiUrl`, and optional `issuerBackendApiKey` (see [Register with AIR](#register-with-air)).
 4. **Register your issuer DID** — after first boot, extract the DID derived from `SEED` and register it with the AIR team / Credential Dashboard (see [Extract issuer DID](#extract-issuer-did)).
@@ -39,36 +39,67 @@ Holder identity (`holderDID`, `pubKey`, `userId`) is always supplied by AIR — 
 
 ```bash
 pnpm install
+
+# Optional — only when DATABASE_URL is set (see below)
 npx mikro-orm migration:up   # or ./bin/migration-up
 ```
+
+`DATABASE_URL` and migrations are **optional**. Without them the app still boots (useful for extracting the issuer DID and local smoke tests). Skip `migration:up` unless you have Postgres configured.
 
 ## Environment
 
 See `.env.example` for sample values.
 
+### Generate secrets
+
+```bash
+./bin/generate-secrets
+```
+
+Prints `.env` lines for `SEED`, the ES256 partner signing key (`PARTNER_PRIVATE_KEY_KID` / `PARTNER_PRIVATE_KEY_DER` / `SD_JWT_JWKS`), and API keys (same order as `.env.example`). Signing alg (`ES256`) and SD-JWT hash (`sha-256`) are fixed in code. `PARTNER_PRIVATE_KEY_DER` is the PKCS#8 body only — the service adds PEM headers at runtime.
+
+Copy the printed lines into `.env`. Register the same JWKS / `kid` with AIR / Credential Dashboard, and give `API_KEY` to AIR as `issuerBackendApiKey`. Do not commit real secrets. Back up `SEED` — losing it means you can no longer operate as that issuer DID.
 
 | Variable                  | Purpose                                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`            | Postgres connection URL                                                                                 |
+| `DATABASE_URL`            | **Optional.** Postgres connection URL. Omit to run without a real DB (see below)                        |
 | `ISSUER_ORIGIN`           | Public origin of **this** service (no trailing slash). Used in credential status URLs                   |
-| `AIR_API_ORIGIN`          | AIR API origin (batch issue / initialize-user). Reach out to AIR team                                   |
-| `MOCA_CHAIN_API_ORIGIN`   | Moca chain API origin. Reach out to AIR team                                                            |
+| `AIR_ENV`                 | `sandbox` or `prod`. Resolves AIR / Moca API origins and iden3 network settings in code (see below)     |
 | `SEED`                    | 32-byte hex seed for the issuer BabyJubJub identity (**private**). Changing it creates a new issuer DID |
 | `PARTNER_ID`              | AIR partner UUID                                                                                        |
 | `PARTNER_PRIVATE_KEY_KID` | JWKS key id                                                                                             |
-| `PARTNER_PRIVATE_KEY_ALG` | Signing algorithm (e.g. `RS256`)                                                                        |
 | `PARTNER_PRIVATE_KEY_DER` | Partner private key body in DER / PKCS#8 (PEM headers are added in code)                                |
+| `SD_JWT_JWKS`             | Public JWKS JSON for the partner signing key (same `kid` as `PARTNER_PRIVATE_KEY_KID`)                  |
 | `API_KEY`                 | Value expected in `x-api-key` for holder-facing routes                                                  |
 | `ADMIN_API_KEY`           | Value expected in `x-admin-api-key` for admin routes                                                    |
 
+`AIR_ENV` maps to fixed endpoints / DID network params (do not set these as env vars):
 
-Generate `SEED` with a CSPRNG:
+| `AIR_ENV` | AIR API | Moca chain API | iden3 `networkId` |
+| --------- | ------- | -------------- | ----------------- |
+| `sandbox` | `https://air.api.sandbox.air3.com` | `https://api.sandbox.mocachain.org` | `testnet` |
+| `prod` | `https://air.api.air3.com` | `https://mocachain-mainnet.api.air3.com` | `main` |
 
-```bash
-echo 0x`openssl rand -hex 32`
-```
+Both environments use `iden3` method `air` and blockchain `id`.
 
-Treat `SEED`, partner private key material, and API keys as secrets. Back up `SEED` — losing it means you can no longer operate as that issuer DID.
+### Optional database (`DATABASE_URL`)
+
+If `DATABASE_URL` is unset, MikroORM stubs persistence (`flush` / reads are no-ops or empty). You do **not** need Postgres or `npx mikro-orm migration:up` for:
+
+- Booting the service / REPL
+- Extracting the issuer DID from `SEED`
+- Exercising issuance paths that do not depend on stored history
+
+Without a real database these features do **not** work correctly (data is not kept across requests):
+
+| Feature | Without `DATABASE_URL` |
+| ------- | ---------------------- |
+| Issuance history (`/admin/issuance-history`) | Always empty |
+| Revocation (`/admin/revoke`, status proofs) | No durable revocation state |
+| Credential / SD-JWT persistence | Issued records are not stored |
+| Credential status lookups that read the DB | Miss stored credentials / nonces |
+
+For any real deploy or claim/revoke flow, set `DATABASE_URL`, run migrations, and keep Postgres durable.
 
 ## Extract issuer DID
 
@@ -305,7 +336,7 @@ Result log: `[unix_timestamp_ms].csv`.
 - [ ] Partner JWT keys (`PARTNER_*`) match AIR JWKS
 - [ ] Each Credential Dashboard schema has a matching class in `src/issuer/schemas/` and is exported from `index.ts`
 - [ ] `generateCredentialData` returns schema-valid subjects and sensible expirations
-- [ ] Migrations applied; Postgres durable
+- [ ] `DATABASE_URL` set; migrations applied; Postgres durable (required for history, revocation, and status)
 - [ ] `ISSUER_ORIGIN` is public HTTPS; status endpoints reachable
 - [ ] If CORS is enabled, `*.air3.com` is whitelisted
 - [ ] `availableVcApiUrl` / `issueVcApiUrl` / `issuerBackendApiKey` set in AIR partner config

@@ -54,9 +54,9 @@ export class CredentialIssuingService implements OnModuleInit {
     private readonly httpService: HttpService,
     private readonly entityManager: EntityManager,
   ) {
-    this.method = this.configService.get('IDEN3_METHOD') ?? DidMethod.Air;
-    this.blockchain = this.configService.get('IDEN3_BLOCKCHAIN') ?? Blockchain.Id;
-    this.networkId = this.configService.get('IDEN3_NETWORK_ID') ?? NetworkId.Testnet;
+    this.method = this.configService.getOrThrow<string>('air.iden3Method');
+    this.blockchain = this.configService.getOrThrow<string>('air.iden3Blockchain');
+    this.networkId = this.configService.getOrThrow<string>('air.iden3NetworkId');
 
     this.issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN').trim().replace(/\/+$/, '');
     this.dataStorage = {

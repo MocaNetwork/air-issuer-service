@@ -51,14 +51,14 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
   const partnerJwtService = app.get(PartnerJwtService);
 
   const PARTNER_ID: string = configService.getOrThrow('PARTNER_ID');
-  const AIR_API_ORIGIN: string = configService.getOrThrow('AIR_API_ORIGIN');
+  const airApiOrigin: string = configService.getOrThrow('air.airApiOrigin');
 
   for (const { credentialSubject, email, expiration } of items) {
     try {
       const partnerJwt = await partnerJwtService.generateJwt({ email }, {});
       const identity = await axiosRef
         .post<InitializeUserResponse>(
-          `${AIR_API_ORIGIN}/v2/auth/initialize-user`,
+          `${airApiOrigin}/v2/auth/initialize-user`,
           { partnerJwt },
           { headers: { 'x-partner-id': PARTNER_ID } },
         )
