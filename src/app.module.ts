@@ -1,6 +1,7 @@
 import { MikroOrmModule } from '@mikro-orm/nestjs';
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import airEnvConfig from './config/air-env.config';
 import mikroOrmConfig from './mikro-orm.config';
 
 import { DStorageModule } from './dstorage/dstorage.module';
@@ -14,7 +15,7 @@ import { WellKnownController } from './well-known.controller';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({ isGlobal: true, load: [airEnvConfig] }),
     MikroOrmModule.forRoot(mikroOrmConfig),
 
     DStorageModule,

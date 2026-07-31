@@ -9,14 +9,15 @@ import { randomBytes, randomUUID } from 'node:crypto';
 
 import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
 
+const PARTNER_PRIVATE_KEY_ALG = 'ES256';
+const SD_JWT_HASH_ALG: HashAlgorithm = 'sha-256';
+
 @Injectable()
 export class SdJwtVcService implements OnModuleInit {
   private readonly issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
   private readonly partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
-  private readonly partnerPrivateKeyAlg = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_ALG');
   private readonly partnerPrivateKeyDer = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
   private readonly partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
-  private readonly sdJwtHashAlg = this.configService.getOrThrow<HashAlgorithm>('SD_JWT_HASH_ALG');
 
   private sdJwtVcInstance: SDJwtVcInstance;
 
@@ -29,11 +30,11 @@ export class SdJwtVcService implements OnModuleInit {
     let pkcs8 = '-----BEGIN PRIVATE KEY-----\n';
     pkcs8 += this.partnerPrivateKeyDer;
     pkcs8 += '\n-----END PRIVATE KEY-----';
-    const privateKey = await importPKCS8(pkcs8, this.partnerPrivateKeyAlg);
+    const privateKey = await importPKCS8(pkcs8, PARTNER_PRIVATE_KEY_ALG);
 
     this.sdJwtVcInstance = new SDJwtVcInstance({
-      hashAlg: this.sdJwtHashAlg,
-      signAlg: this.partnerPrivateKeyAlg,
+      hashAlg: SD_JWT_HASH_ALG,
+      signAlg: PARTNER_PRIVATE_KEY_ALG,
       hasher: digest,
       signer: (data) => this.sign(data, privateKey),
       saltGenerator: generateSalt,

@@ -12,7 +12,7 @@ import {
 @Injectable()
 export class DStorageAPIService {
   private readonly axiosRef: AxiosInstance = this.httpService.axiosRef;
-  private readonly mocaChainApiOrigin = this.configService.getOrThrow<string>('MOCA_CHAIN_API_ORIGIN');
+  private readonly mocaChainApiOrigin = this.configService.getOrThrow<string>('air.mocaChainApiOrigin');
 
   constructor(
     private readonly configService: ConfigService,
