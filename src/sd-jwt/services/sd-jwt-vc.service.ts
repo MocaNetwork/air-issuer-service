@@ -19,7 +19,7 @@ export class SdJwtVcService implements OnModuleInit {
   private readonly partnerPrivateKeyDer = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
   private readonly partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
 
-  private sdJwtVcInstance: SDJwtVcInstance;
+  private sdJwtVcInstance!: SDJwtVcInstance;
 
   constructor(
     private readonly configService: ConfigService,
