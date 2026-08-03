@@ -32,9 +32,12 @@ import { DStorageAPIService } from '../../dstorage/services/dstorage-api.service
 import { Credential } from '../entities/credential.entity';
 import { Revocation } from '../entities/revocation.entity';
 
+const NETWORK_ID: Record<string, string> = { production: NetworkId.Main };
+
 @Injectable()
 export class CredentialIssuingService implements OnModuleInit {
   private readonly logger = new Logger(CredentialIssuingService.name);
+  private readonly nodeEnv = this.configService.get<string>('NODE_ENV') ?? 'sandbox';
 
   private readonly issuerOrigin: string;
   private readonly documentLoader = createDocumentLoader(this.httpService);
@@ -56,7 +59,7 @@ export class CredentialIssuingService implements OnModuleInit {
   ) {
     this.method = this.configService.get('IDEN3_METHOD') ?? DidMethod.Air;
     this.blockchain = this.configService.get('IDEN3_BLOCKCHAIN') ?? Blockchain.Id;
-    this.networkId = this.configService.get('IDEN3_NETWORK_ID') ?? NetworkId.Testnet;
+    this.networkId = NETWORK_ID[this.nodeEnv] ?? this.configService.get<string>('IDEN3_NETWORK_ID') ?? NetworkId.Testnet;
 
     this.issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN').trim().replace(/\/+$/, '');
     this.dataStorage = {
