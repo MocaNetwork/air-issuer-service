@@ -4,7 +4,7 @@ import { importPKCS8, JWTHeaderParameters, SignJWT } from 'jose';
 
 const EXPIRY_MS = 15 * 60_000;
 const CACHE_EXPIRY_THRESHOLD_MS = 2 * 60_000;
-const ALG = 'ES256';
+const PARTNER_PRIVATE_KEY_ALG = 'ES256';
 
 @Injectable()
 export class PartnerJwtService implements OnModuleInit {
