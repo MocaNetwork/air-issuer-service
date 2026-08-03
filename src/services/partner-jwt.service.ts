@@ -9,7 +9,7 @@ const CACHE_EXPIRY_THRESHOLD_MS = 2 * 60_000;
 export class PartnerJwtService implements OnModuleInit {
   private readonly partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
   private readonly der = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
-  private readonly alg = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_ALG');
+  private readonly alg = this.configService.get<string>('PARTNER_PRIVATE_KEY_ALG') ?? 'ES256';
   private readonly kid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
   private readonly issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
 

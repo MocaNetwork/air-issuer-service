@@ -13,10 +13,10 @@ import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
 export class SdJwtVcService implements OnModuleInit {
   private readonly issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
   private readonly partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
-  private readonly partnerPrivateKeyAlg = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_ALG');
+  private readonly partnerPrivateKeyAlg = this.configService.get<string>('PARTNER_PRIVATE_KEY_ALG') ?? 'ES256';
   private readonly partnerPrivateKeyDer = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
   private readonly partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
-  private readonly sdJwtHashAlg = this.configService.getOrThrow<HashAlgorithm>('SD_JWT_HASH_ALG');
+  private readonly sdJwtHashAlg = this.configService.get<HashAlgorithm>('SD_JWT_HASH_ALG') ?? 'sha-256';
 
   private sdJwtVcInstance: SDJwtVcInstance;
 
