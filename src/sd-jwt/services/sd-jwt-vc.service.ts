@@ -18,7 +18,7 @@ export class SdJwtVcService implements OnModuleInit {
   private readonly partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
   private readonly sdJwtHashAlg = this.configService.get<HashAlgorithm>('SD_JWT_HASH_ALG') ?? 'sha-256';
 
-  private sdJwtVcInstance: SDJwtVcInstance;
+  private sdJwtVcInstance!: SDJwtVcInstance;
 
   constructor(
     private readonly configService: ConfigService,
