@@ -1,15 +1,14 @@
 import { HttpModule as HttpModuleBase } from '@nestjs/axios';
+import { DynamicModule } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { SocksProxyAgent } from 'socks-proxy-agent';
+import { createSocksProxyAgent } from '../shims/socks-proxy-agent';
 
-export const HttpModule = HttpModuleBase.registerAsync({
+export const HttpModule: DynamicModule = HttpModuleBase.registerAsync({
   imports: [ConfigModule],
   inject: [ConfigService],
   useFactory: (configService: ConfigService) => {
-    let agent: SocksProxyAgent | undefined = undefined;
-
     const socks5Proxy = configService.get<string>('SOCKS5_PROXY');
-    if (socks5Proxy) agent = new SocksProxyAgent(socks5Proxy);
+    const agent = socks5Proxy ? createSocksProxyAgent(socks5Proxy) : undefined;
 
     return {
       httpAgent: agent,
