@@ -12,6 +12,7 @@ import { DStorageAPIService } from '../dstorage/services/dstorage-api.service';
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
 import { PartnerJwtService } from '../services/partner-jwt.service';
 
+import { AIR_API } from '../common/api-origin-dictionary';
 import { encryptText } from '../common/utils/encryption';
 import { hexStrToBuffer } from '../common/utils/string';
 
@@ -51,8 +52,10 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
   const dStorageApiService = app.get(DStorageAPIService);
   const partnerJwtService = app.get(PartnerJwtService);
 
+  const NODE_ENV = configService.getOrThrow<string>('NODE_ENV');
   const PARTNER_ID: string = configService.getOrThrow('PARTNER_ID');
-  const AIR_API_ORIGIN: string = configService.getOrThrow('AIR_API_ORIGIN');
+  const AIR_API_ORIGIN = AIR_API[NODE_ENV];
+  if (AIR_API_ORIGIN === undefined) throw new Error(`Invalid NODE_ENV: ${NODE_ENV}`);
 
   for (const { credentialSubject, email, expiration } of items) {
     try {
