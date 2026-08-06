@@ -117,6 +117,7 @@ export class IssuerService {
       const dstorageInfo = await this.dStorageApiService.createObject(
         {
           holderDid: holder.holderDID,
+          proofType,
           schemaId,
           expiresAt: credentialIssuance.expiresAt.toISOString(),
           data: encryptedData.encryptedData,
