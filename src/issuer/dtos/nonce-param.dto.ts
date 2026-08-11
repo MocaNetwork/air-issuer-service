@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsNumberString, MaxLength } from 'class-validator';
 
-export class NonceRequestBodyDto {
+export class NonceParamDto {
   @IsNumberString()
   @IsNotEmpty()
   @MaxLength(20)
