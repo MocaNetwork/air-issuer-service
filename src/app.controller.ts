@@ -37,8 +37,9 @@ export class AppController {
       body.schemaId,
       {
         holderDID: body.holderDID,
-        pubKey: body.pubKey,
+        encryptionKey: body.encryptionKey ?? body.pubKey,
         userId: body.userId,
+        signingKey: body.signingKey ?? undefined,
       },
       body.proofType,
     );

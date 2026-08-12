@@ -96,7 +96,12 @@ export class IssuerService {
 
   async issueVc(
     schemaId: string,
-    holder: { userId: string; holderDID: string; pubKey: string },
+    holder: {
+      userId: string;
+      holderDID: string;
+      encryptionKey: string;
+      signingKey?: { jwk: JsonWebKey };
+    },
     proofType?: ProofType,
   ): Promise<void> {
     proofType ??= ProofType.BJJ_SIG_2021;
@@ -109,7 +114,7 @@ export class IssuerService {
       const { credential, credentialIssuance, id: credentialId } = issued;
 
       const payload = JSON.stringify(credential);
-      const encryptedData = await encryptText(payload, hexStrToBuffer(holder.pubKey), { encoding: 'base64' });
+      const encryptedData = await encryptText(payload, hexStrToBuffer(holder.encryptionKey), { encoding: 'base64' });
 
       await em.persist(credentialIssuance).flush();
 
@@ -144,13 +149,17 @@ export class IssuerService {
     });
   }
 
-  private async issueSdJwtVc(schemaId: string, holder: { userId: string; holderDID: string }) {
+  private async issueSdJwtVc(
+    schemaId: string,
+    holder: { userId: string; holderDID: string; signingKey?: { jwk: JsonWebKey } },
+  ) {
     const schema = this.schemaIdMap[ProofType.SD_JWT_VC][schemaId];
     if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
 
     return await schema.issue(holder.userId, {
       holderDID: holder.holderDID,
       issuingService: this.sdJwtVcService,
+      cnf: holder.signingKey,
     });
   }
 
