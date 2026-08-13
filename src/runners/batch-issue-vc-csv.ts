@@ -1,4 +1,4 @@
-import { MerklizedRootPosition } from '@mocanetwork/privado-js-sdk';
+import { MerklizedRootPosition } from '@mocanetwork/identity-js-sdk';
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
