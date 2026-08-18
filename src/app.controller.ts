@@ -7,6 +7,7 @@ import { IssuerService } from './issuer/issuer.service';
 import { AvailableVcRequestBodyDto } from './issuer/dtos/available-vc-request-body.dto';
 import { IssuanceHistoryRequestQueryDto } from './issuer/dtos/issuance-history-request-query.dto';
 import { IssueVcRequestBodyDto } from './issuer/dtos/issue-vc-request-body.dto';
+import { NonceParamDto } from './issuer/dtos/nonce-param.dto';
 import { NonceRequestBodyDto } from './issuer/dtos/nonce-request-body.dto';
 
 @Controller()
@@ -44,12 +45,12 @@ export class AppController {
   }
 
   @Get('credential-status/:nonce')
-  async credentialStatus(@Param('nonce') nonce: string) {
+  async credentialStatus(@Param() { nonce }: NonceParamDto) {
     return await this.issuerService.credentialStatus(nonce);
   }
 
   @Get('revocation-status/:nonce')
-  async revocationStatus(@Param('nonce') nonce: string) {
+  async revocationStatus(@Param() { nonce }: NonceParamDto) {
     return await this.issuerService.revocationStatus(nonce);
   }
 
