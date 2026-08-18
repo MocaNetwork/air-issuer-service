@@ -9,6 +9,7 @@ import { IssuanceHistoryRequestQueryDto } from './issuer/dtos/issuance-history-r
 import { IssueVcRequestBodyDto } from './issuer/dtos/issue-vc-request-body.dto';
 import { NonceParamDto } from './issuer/dtos/nonce-param.dto';
 import { NonceRequestBodyDto } from './issuer/dtos/nonce-request-body.dto';
+import { RevocationStatusRequestQueryDto } from './issuer/dtos/revocation-status-request-query-dto';
 
 @Controller()
 export class AppController {
@@ -51,8 +52,8 @@ export class AppController {
   }
 
   @Get('revocation-status/:nonce')
-  async revocationStatus(@Param() { nonce }: NonceParamDto) {
-    return await this.issuerService.revocationStatus(nonce);
+  async revocationStatus(@Param() { nonce }: NonceParamDto, @Query() query: RevocationStatusRequestQueryDto) {
+    return await this.issuerService.revocationStatus(nonce, query.proofType);
   }
 
   @UseGuards(AdminApiKeyGuard)
@@ -64,6 +65,6 @@ export class AppController {
   @UseGuards(AdminApiKeyGuard)
   @Post('admin/revoke')
   async adminRevoke(@Body() body: NonceRequestBodyDto) {
-    await this.issuerService.revoke(body.nonce);
+    await this.issuerService.revoke(body.nonce, body.proofType);
   }
 }
