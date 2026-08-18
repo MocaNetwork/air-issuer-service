@@ -59,7 +59,7 @@ export class SdJwtVcService implements OnModuleInit {
       iat: basePayload.iat ?? iat,
 
       iss: this.issuerOrigin,
-      // cnf: // TODO: flow for cnf
+      // cnf: // Must be passed by the caller
       // status: // TODO: draft-ietf-oauth-status-list-21
     };
 
