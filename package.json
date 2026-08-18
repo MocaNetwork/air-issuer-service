@@ -37,6 +37,7 @@
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
     "@owf/crypto": "^0.3.1",
+    "@owf/token-status-list": "^0.3.2",
     "@sd-jwt/core": "^0.20.0",
     "@sd-jwt/sd-jwt-vc": "^0.20.0",
     "axios": "^1.16.1",

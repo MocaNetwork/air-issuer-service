@@ -45,6 +45,10 @@ export class AppController {
     );
   }
 
+  @Get('statuslist/:partition')
+  async statusList() {
+  }
+
   @Get('credential-status/:nonce')
   async credentialStatus(@Param() { nonce }: NonceParamDto) {
     return await this.issuerService.credentialStatus(nonce);
