@@ -8,6 +8,7 @@ import { base64url, CompactJWSHeaderParameters, FlattenedSign, importPKCS8 } fro
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
+import { PARTITION_COUNT } from './token-status-list.service';
 
 @Injectable()
 export class SdJwtVcService implements OnModuleInit {
@@ -63,18 +64,27 @@ export class SdJwtVcService implements OnModuleInit {
       // status: // TODO: draft-ietf-oauth-status-list-21
     };
 
-    const jwt = await this.sdJwtVcInstance.issue(payload, disclosureFrame, { header });
-
     const sdJwtVc = new SdJwtVc();
     sdJwtVc.holder = payload.sub!;
-    sdJwtVc.jwt = jwt;
+    sdJwtVc.jwt = 'pending';
     sdJwtVc.nonce = payload.nonce as string;
     sdJwtVc.revoked = false;
     sdJwtVc.createdAt = new Date(payload.iat! * 1_000);
 
     await em.persist(sdJwtVc).flush();
 
-    return jwt;
+    const index = Number(sdJwtVc.id) - 1;
+    payload.status = {
+      status_list: {
+        idx: index % PARTITION_COUNT,
+        uri: `${this.issuerOrigin}/statuslist/${Math.floor(index / PARTITION_COUNT) + 1}`,
+      },
+    };
+    sdJwtVc.jwt = await this.sdJwtVcInstance.issue(payload, disclosureFrame, { header });
+
+    await em.persist(sdJwtVc).flush();
+
+    return sdJwtVc.jwt;
   }
 
   private async sign(data: string, privateKey: CryptoKey): Promise<string> {
