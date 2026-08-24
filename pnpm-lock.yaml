@@ -40,12 +40,12 @@ importers:
       '@mikro-orm/postgresql':
         specifier: ^7.1.1
         version: 7.1.1(@mikro-orm/core@7.1.1)
+      '@mocanetwork/identity-js-sdk':
+        specifier: ^3.0.0
+        version: 3.0.1(@iden3/js-crypto@1.3.2)(@iden3/js-jsonld-merklization@1.7.2(@iden3/js-crypto@1.3.2)(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(web-streams-polyfill@3.3.3))(@iden3/js-jwz@1.12.2(@iden3/js-crypto@1.3.2)(@iden3/js-iden3-core@1.8.0(@iden3/js-crypto@1.3.2))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(@noble/curves@1.9.7)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(bufferutil@4.1.0)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5)(typescript@5.9.3)(utf-8-validate@6.0.6)(web-streams-polyfill@3.3.3)
       '@mocanetwork/moca-iden3':
         specifier: ^2.0.1
         version: 2.1.2(@iden3/js-crypto@1.3.2)
-      '@mocanetwork/privado-js-sdk':
-        specifier: ^2.0.1
-        version: 2.1.2(@iden3/js-crypto@1.3.2)(@iden3/js-jsonld-merklization@1.7.2(@iden3/js-crypto@1.3.2)(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(web-streams-polyfill@3.3.3))(@iden3/js-jwz@1.12.2(@iden3/js-crypto@1.3.2)(@iden3/js-iden3-core@1.8.0(@iden3/js-crypto@1.3.2))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(@noble/curves@1.9.7)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(bufferutil@4.1.0)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5)(typescript@5.9.3)(utf-8-validate@6.0.6)(web-streams-polyfill@3.3.3)
       '@nestjs/axios':
         specifier: ^4.0.1
         version: 4.0.1(@nestjs/common@11.1.23(class-transformer@0.5.1)(class-validator@0.15.1)(reflect-metadata@0.2.2)(rxjs@7.8.2))(axios@1.16.1)(rxjs@7.8.2)
@@ -1007,13 +1007,8 @@ packages:
     peerDependencies:
       '@mikro-orm/core': 7.1.1
 
-  '@mocanetwork/moca-iden3@2.1.2':
-    resolution: {integrity: sha512-1T2LB9SgXeZv3pb3x4dvl8v5r29/z49Hgo5rUYPTgMrW7+GFjlPJCOAHlmc/jI69HAaEjaKapSUKZ7Ok4wR9Vw==}
-    peerDependencies:
-      '@iden3/js-crypto': ^1.3.1
-
-  '@mocanetwork/privado-js-sdk@2.1.2':
-    resolution: {integrity: sha512-6NLCknM/ajFR0C2WYHxmq/SRp2pQNYjJs4M6jOcfb1d6d8IptneuydYse6NCwQo6AES/te3uRAnRBtFG+vM7Cg==}
+  '@mocanetwork/identity-js-sdk@3.0.1':
+    resolution: {integrity: sha512-+yvR9hWtKvf9h002wFboSE+mpoLR577vPwlXEMXhmZBBKuIsuUuruswb1scOzlGEnv9n46Xzgh571b8lnMnveQ==}
     engines: {node: '>=20.11.0'}
     peerDependencies:
       '@iden3/js-crypto': ^1.3.1
@@ -1023,6 +1018,11 @@ packages:
       ffjavascript: ^0.3.1
       rfc4648: ^1.5.4
       snarkjs: ^0.7.5
+
+  '@mocanetwork/moca-iden3@2.1.2':
+    resolution: {integrity: sha512-1T2LB9SgXeZv3pb3x4dvl8v5r29/z49Hgo5rUYPTgMrW7+GFjlPJCOAHlmc/jI69HAaEjaKapSUKZ7Ok4wR9Vw==}
+    peerDependencies:
+      '@iden3/js-crypto': ^1.3.1
 
   '@multiformats/base-x@4.0.1':
     resolution: {integrity: sha512-eMk0b9ReBbV23xXU693TAIrLyeO5iTgBZGSJfpqriG8UkYvr/hC9u9pyMlAakDNHWmbhMZCDs6KQO0jzKD8OTw==}
@@ -4989,11 +4989,7 @@ snapshots:
       '@mikro-orm/core': 7.1.1
       kysely: 0.29.2
 
-  '@mocanetwork/moca-iden3@2.1.2(@iden3/js-crypto@1.3.2)':
-    dependencies:
-      '@iden3/js-crypto': 1.3.2
-
-  '@mocanetwork/privado-js-sdk@2.1.2(@iden3/js-crypto@1.3.2)(@iden3/js-jsonld-merklization@1.7.2(@iden3/js-crypto@1.3.2)(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(web-streams-polyfill@3.3.3))(@iden3/js-jwz@1.12.2(@iden3/js-crypto@1.3.2)(@iden3/js-iden3-core@1.8.0(@iden3/js-crypto@1.3.2))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(@noble/curves@1.9.7)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(bufferutil@4.1.0)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5)(typescript@5.9.3)(utf-8-validate@6.0.6)(web-streams-polyfill@3.3.3)':
+  '@mocanetwork/identity-js-sdk@3.0.1(@iden3/js-crypto@1.3.2)(@iden3/js-jsonld-merklization@1.7.2(@iden3/js-crypto@1.3.2)(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(web-streams-polyfill@3.3.3))(@iden3/js-jwz@1.12.2(@iden3/js-crypto@1.3.2)(@iden3/js-iden3-core@1.8.0(@iden3/js-crypto@1.3.2))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(@noble/curves@1.9.7)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5))(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(bufferutil@4.1.0)(ffjavascript@0.3.1)(rfc4648@1.5.4)(snarkjs@0.7.5)(typescript@5.9.3)(utf-8-validate@6.0.6)(web-streams-polyfill@3.3.3)':
     dependencies:
       '@iden3/js-crypto': 1.3.2
       '@iden3/js-jsonld-merklization': 1.7.2(@iden3/js-crypto@1.3.2)(@iden3/js-merkletree@1.5.1(@iden3/js-crypto@1.3.2)(idb-keyval@6.2.2))(web-streams-polyfill@3.3.3)
@@ -5024,6 +5020,10 @@ snapshots:
       - typescript
       - utf-8-validate
       - web-streams-polyfill
+
+  '@mocanetwork/moca-iden3@2.1.2(@iden3/js-crypto@1.3.2)':
+    dependencies:
+      '@iden3/js-crypto': 1.3.2
 
   '@multiformats/base-x@4.0.1': {}
 
