@@ -1,5 +1,5 @@
 import { EntityManager } from '@mikro-orm/postgresql';
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { digest, generateSalt } from '@owf/crypto';
 import { DisclosureFrame, HashAlgorithm } from '@sd-jwt/core';
@@ -88,5 +88,20 @@ export class SdJwtVcService implements OnModuleInit {
     const { signature } = await flattedSign.sign(privateKey);
 
     return signature;
+  }
+
+  async revoke(nonce: string) {
+    const sdJwtVc = await this.entityManager.findOne(SdJwtVc, { nonce });
+    if (sdJwtVc === null) throw new NotFoundException('Revocation nonce not found');
+    if (sdJwtVc.revoked) return sdJwtVc;
+
+    sdJwtVc.revoked = true;
+    await this.entityManager.persist(sdJwtVc).flush();
+
+    return sdJwtVc;
+  }
+
+  async isRevoked(nonce: string): Promise<boolean> {
+    return await this.entityManager.count(SdJwtVc, { nonce, revoked: true }).then((e) => e > 0);
   }
 }
