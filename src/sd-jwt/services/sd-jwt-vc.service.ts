@@ -2,12 +2,14 @@ import { EntityManager } from '@mikro-orm/postgresql';
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { digest, generateSalt } from '@owf/crypto';
+import { StatusType } from '@owf/token-status-list';
 import { DisclosureFrame, HashAlgorithm } from '@sd-jwt/core';
 import { SDJwtVcInstance, SdJwtVcPayload } from '@sd-jwt/sd-jwt-vc';
 import { base64url, CompactJWSHeaderParameters, FlattenedSign, importPKCS8 } from 'jose';
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
+import { TokenStatusListService } from './token-status-list.service';
 
 @Injectable()
 export class SdJwtVcService implements OnModuleInit {
@@ -23,6 +25,7 @@ export class SdJwtVcService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly entityManager: EntityManager,
+    private readonly tokenStatusListService: TokenStatusListService,
   ) {}
 
   async onModuleInit() {
@@ -63,18 +66,31 @@ export class SdJwtVcService implements OnModuleInit {
       // status: // TODO: draft-ietf-oauth-status-list-21
     };
 
-    const jwt = await this.sdJwtVcInstance.issue(payload, disclosureFrame, { header });
-
     const sdJwtVc = new SdJwtVc();
     sdJwtVc.holder = payload.sub!;
-    sdJwtVc.jwt = jwt;
+    sdJwtVc.jwt = 'pending';
     sdJwtVc.nonce = payload.nonce as string;
     sdJwtVc.revoked = false;
     sdJwtVc.createdAt = new Date(payload.iat! * 1_000);
 
     await em.persist(sdJwtVc).flush();
 
-    return jwt;
+    if (this.tokenStatusListService.partitionSize) {
+      const index = Number(sdJwtVc.id) - 1;
+      const partition = Math.floor(index / this.tokenStatusListService.partitionSize);
+
+      payload.status = {
+        status_list: {
+          idx: index % this.tokenStatusListService.partitionSize,
+          uri: `${this.issuerOrigin}/statuslist/${partition}`,
+        },
+      };
+    }
+    sdJwtVc.jwt = await this.sdJwtVcInstance.issue(payload, disclosureFrame, { header });
+
+    await em.persist(sdJwtVc).flush();
+
+    return sdJwtVc.jwt;
   }
 
   private async sign(data: string, privateKey: CryptoKey): Promise<string> {
@@ -96,6 +112,7 @@ export class SdJwtVcService implements OnModuleInit {
     if (sdJwtVc.revoked) return sdJwtVc;
 
     sdJwtVc.revoked = true;
+    sdJwtVc.updatedAt = new Date();
     await this.entityManager.persist(sdJwtVc).flush();
 
     return sdJwtVc;
