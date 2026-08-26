@@ -9,7 +9,7 @@ import { base64url, CompactJWSHeaderParameters, FlattenedSign, importPKCS8 } fro
 import { randomBytes, randomUUID } from 'node:crypto';
 
 import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
-import { PARTITION_COUNT, TokenStatusListService } from './token-status-list.service';
+import { TokenStatusListService } from './token-status-list.service';
 
 @Injectable()
 export class SdJwtVcService implements OnModuleInit {
@@ -75,13 +75,17 @@ export class SdJwtVcService implements OnModuleInit {
 
     await em.persist(sdJwtVc).flush();
 
-    const index = Number(sdJwtVc.id) - 1;
-    payload.status = {
-      status_list: {
-        idx: index % PARTITION_COUNT,
-        uri: `${this.issuerOrigin}/statuslist/${Math.floor(index / PARTITION_COUNT)}`,
-      },
-    };
+    if (this.tokenStatusListService.partitionSize) {
+      const index = Number(sdJwtVc.id) - 1;
+      const partition = Math.floor(index / this.tokenStatusListService.partitionSize);
+
+      payload.status = {
+        status_list: {
+          idx: index % this.tokenStatusListService.partitionSize,
+          uri: `${this.issuerOrigin}/statuslist/${partition}`,
+        },
+      };
+    }
     sdJwtVc.jwt = await this.sdJwtVcInstance.issue(payload, disclosureFrame, { header });
 
     await em.persist(sdJwtVc).flush();

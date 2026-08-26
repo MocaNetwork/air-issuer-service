@@ -1,5 +1,5 @@
 import { EntityManager, QueryOrder } from '@mikro-orm/postgresql';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, NotImplementedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BitsPerStatus, StatusList, StatusType } from '@owf/token-status-list';
 
@@ -7,12 +7,12 @@ import { PartnerJwtService } from '../../services/partner-jwt.service';
 import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
 import { TSLPartition } from '../entities/tsl-partition.entity';
 
-export const PARTITION_COUNT = 80_000;
 export const BIT_LENGTH: BitsPerStatus = 1;
 
 @Injectable()
 export class TokenStatusListService {
   private readonly issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
+  public readonly partitionSize: number | null = null;
 
   // TODO: Cache
   private readonly cache: Record<string, { exp: Date; jwt: string }> = {};
@@ -21,9 +21,14 @@ export class TokenStatusListService {
     private readonly entityManager: EntityManager,
     private readonly configService: ConfigService,
     private readonly partnerJwtService: PartnerJwtService,
-  ) {}
+  ) {
+    const partitionSize = this.configService.get<'string'>('SD_JWT_TSL_PARTITION_SIZE');
+    if (partitionSize) this.partitionSize = Number(partitionSize);
+  }
 
   async fetchTSLPartition(id: number): Promise<string> {
+    if (!this.partitionSize) throw new NotImplementedException('Not Supported');
+
     const partition = await this.entityManager.findOne(TSLPartition, { id });
     if (partition === null) throw new NotFoundException('not_found');
 
@@ -42,21 +47,23 @@ export class TokenStatusListService {
   }
 
   async publish() {
+    if (!this.partitionSize) throw new NotImplementedException('Not Supported');
+
     const maxBit = await this.entityManager
       .findOne(SdJwtVc, { id: { $ne: null } }, { orderBy: [{ id: QueryOrder.DESC }] })
       .then((e) => BigInt(e?.id?.toString() ?? '0'));
 
     if (maxBit === 0n) return;
 
-    let totalPartitions = maxBit / BigInt(PARTITION_COUNT);
-    if (maxBit % BigInt(PARTITION_COUNT) > 0n) totalPartitions += 1n;
+    let totalPartitions = maxBit / BigInt(this.partitionSize);
+    if (maxBit % BigInt(this.partitionSize) > 0n) totalPartitions += 1n;
 
     for (let partition = 0; partition < totalPartitions; partition++) {
-      const offset = partition * PARTITION_COUNT;
-      const statusList = new StatusList(new Array<number>(Number(PARTITION_COUNT)).fill(0), 1);
+      const offset = partition * this.partitionSize;
+      const statusList = new StatusList(new Array<number>(Number(this.partitionSize)).fill(0), 1);
       const batch = await this.entityManager.find(
         SdJwtVc,
-        { id: { $gt: offset, $lte: offset + PARTITION_COUNT }, revoked: true },
+        { id: { $gt: offset, $lte: offset + this.partitionSize }, revoked: true },
         { fields: ['id'], orderBy: [{ id: QueryOrder.ASC }] },
       );
       batch.forEach((e) => {
@@ -76,14 +83,16 @@ export class TokenStatusListService {
   }
 
   // NOTE: Don't run, prone to race condition
-  async updateStatus(id: bigint, status: StatusType) {
+  private async updateStatus(id: bigint, status: StatusType) {
+    if (!this.partitionSize) return;
+
     const globalIndex = id - 1n;
-    const partition = BigInt(globalIndex) / BigInt(PARTITION_COUNT);
-    const index = globalIndex % BigInt(PARTITION_COUNT);
+    const partition = BigInt(globalIndex) / BigInt(this.partitionSize);
+    const index = globalIndex % BigInt(this.partitionSize);
 
     let tslPartition = await this.entityManager.findOne(TSLPartition, { id: partition });
     let statusList = tslPartition?.list && StatusList.decompressStatusListFromBytes(tslPartition.list, BIT_LENGTH);
-    statusList ??= new StatusList(new Array<number>(Number(PARTITION_COUNT)).fill(0), BIT_LENGTH);
+    statusList ??= new StatusList(new Array<number>(Number(this.partitionSize)).fill(0), BIT_LENGTH);
     statusList.setStatus(Number(index), status);
 
     tslPartition ??= new TSLPartition();
