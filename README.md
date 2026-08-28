@@ -183,7 +183,7 @@ Response:
 
 #### `POST /issue-vc`
 
-Issue the credential for one schema, persist issuance history, encrypt the VC, upload to dstorage.
+Issue the credential for one schema, persist issuance history, encrypt the VC, upload to dstorage. Repeat calls for the same holder and schema reuse the existing credential/`externalId` unless the subject claims changed.
 
 Request:
 

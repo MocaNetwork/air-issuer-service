@@ -17,6 +17,7 @@ import SdJwtVCSchemas from './sd-jwt-vc-schemas';
 import { BaseSchema as SdJwtVCBaseSchema } from './sd-jwt-vc-schemas/base-schema';
 
 import { ProofType } from './enums/proof-type.enum';
+import { hashCredentialSubject, shouldReuseIssuance } from './utils/issuance-idempotency';
 
 @Injectable()
 export class IssuerService {
@@ -104,14 +105,34 @@ export class IssuerService {
     },
     proofType?: ProofType,
   ): Promise<void> {
-    proofType ??= ProofType.BJJ_SIG_2021;
+    const resolvedProofType = proofType ?? ProofType.BJJ_SIG_2021;
+
+    const schema =
+      resolvedProofType === ProofType.SD_JWT_VC
+        ? this.schemaIdMap[ProofType.SD_JWT_VC][schemaId]
+        : this.schemaIdMap[ProofType.BJJ_SIG_2021][schemaId];
+    if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
+
+    const { credentialSubject } = await schema.generateCredentialData(holder.userId);
+    const subjectHash = hashCredentialSubject(credentialSubject);
 
     await this.entityManager.transactional(async (em) => {
+      const previous = await em.findOne(
+        CredentialIssuance,
+        { holderDid: holder.holderDID, schemaId, revokedAt: null },
+        { orderBy: { createdAt: 'DESC' } },
+      );
+      if (shouldReuseIssuance(previous, subjectHash)) {
+        return;
+      }
+
       const issued =
-        proofType === ProofType.SD_JWT_VC
+        resolvedProofType === ProofType.SD_JWT_VC
           ? await this.issueSdJwtVc(schemaId, holder)
           : await this.issueBjjSig(schemaId, holder);
       const { credential, credentialIssuance, id: credentialId } = issued;
+      credentialIssuance.externalId = credentialId;
+      credentialIssuance.subjectHash = subjectHash;
 
       const payload = JSON.stringify(credential);
       const encryptedData = await encryptText(payload, hexStrToBuffer(holder.encryptionKey), { encoding: 'base64' });
@@ -122,7 +143,7 @@ export class IssuerService {
       const dstorageInfo = await this.dStorageApiService.createObject(
         {
           holderDid: holder.holderDID,
-          proofType,
+          proofType: resolvedProofType,
           schemaId,
           expiresAt: credentialIssuance.expiresAt.toISOString(),
           data: encryptedData.encryptedData,

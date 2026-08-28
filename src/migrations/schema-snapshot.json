@@ -178,6 +178,22 @@
           "collation": null,
           "enumItems": []
         },
+        "external_id": {
+          "name": "external_id",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": []
+        },
         "holder_did": {
           "name": "holder_did",
           "type": "text",
@@ -257,9 +273,35 @@
           "comment": null,
           "collation": null,
           "enumItems": []
+        },
+        "subject_hash": {
+          "name": "subject_hash",
+          "type": "text",
+          "unsigned": false,
+          "autoincrement": false,
+          "primary": false,
+          "nullable": true,
+          "unique": false,
+          "length": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "comment": null,
+          "collation": null,
+          "enumItems": []
         }
       },
       "indexes": [
+        {
+          "columnNames": [
+            "external_id"
+          ],
+          "composite": false,
+          "constraint": false,
+          "keyName": "credential_issuance_external_id_index",
+          "primary": false,
+          "unique": false
+        },
         {
           "columnNames": [
             "holder_did"

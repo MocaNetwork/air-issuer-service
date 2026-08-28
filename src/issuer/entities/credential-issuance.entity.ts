@@ -6,6 +6,10 @@ export const CredentialIssuanceSchema = defineEntity({
     id: p.bigint().primary(),
     holderDid: p.text().index(),
     schemaId: p.text().index(),
+    /** Credential / dstorage idempotency key. Reused when subject claims are unchanged. */
+    externalId: p.text().nullable().index(),
+    /** sha256 of canonical credentialSubject claims (not expiration or ids). */
+    subjectHash: p.text().nullable(),
     dstorageInfo: p.json().nullable(),
     revocationNonce: p.bigint<'string'>().index(),
     createdAt: p.datetime().defaultRaw('NOW()'),
