@@ -1,4 +1,4 @@
-import { EntityManager, FilterQuery, FindOptions } from '@mikro-orm/postgresql';
+import { EntityManager, FilterQuery, FindOptions, raw } from '@mikro-orm/postgresql';
 import { Injectable, NotFoundException } from '@nestjs/common';
 
 import { CredentialIssuingService } from '../iden3/services/credential-issuing.service';
@@ -231,15 +231,24 @@ export class IssuerService {
     };
   }
 
-  async revocationStatus(nonce: string) {
-    const isRevoked = await this.credentialIssuingService.isRevoked(nonce);
+  async revocationStatus(nonce: string, proofType?: ProofType) {
+    let isRevoked: boolean;
+    if (proofType === ProofType.SD_JWT_VC) {
+      isRevoked = await this.sdJwtVcService.isRevoked(nonce);
+    } else {
+      isRevoked = await this.credentialIssuingService.isRevoked(nonce);
+    }
     return { isRevoked };
   }
 
-  async revoke(revocationNonce: string): Promise<void> {
+  async revoke(revocationNonce: string, proofType?: ProofType): Promise<void> {
     await this.entityManager.transactional(async (em) => {
-      const revocation = await this.credentialIssuingService.revoke(revocationNonce);
-      await em.nativeUpdate(CredentialIssuance, { revocationNonce }, { revokedAt: revocation.createdAt });
+      if (proofType === ProofType.SD_JWT_VC) {
+        await this.sdJwtVcService.revoke(revocationNonce);
+      } else {
+        await this.credentialIssuingService.revoke(revocationNonce);
+      }
+      await em.nativeUpdate(CredentialIssuance, { revocationNonce }, { revokedAt: raw('NOW()') });
     });
   }
 }
