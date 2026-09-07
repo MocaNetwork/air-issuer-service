@@ -11,7 +11,10 @@ Most of the crypto, encryption, dstorage upload, and revocation plumbing is alre
 3. **Deploy this service** — expose the public HTTP API, then give AIR your `availableVcApiUrl`, `issueVcApiUrl`, and optional `issuerBackendApiKey` (see [Register with AIR](#register-with-air)).
 4. **Register your issuer DID** — after first boot, extract the DID derived from `SEED` and register it with the AIR team / Credential Dashboard (see [Extract issuer DID](#extract-issuer-did)).
 
-Optional: use [direct issuance (CSV)](#direct-issuance-issue-on-behalf) for bulk issue-on-behalf without the interactive claim flow.
+Optional features, both off by default and safe to skip:
+
+- [Direct issuance (CSV)](#direct-issuance-issue-on-behalf) - bulk issue-on-behalf without the interactive claim flow.
+- [SD-JWT VC token status list](#optional-sd-jwt-vc-token-status-list) - privacy-preserving batch revocation for SD-JWT VC credentials.
 
 ### Do not change (unless you know why)
 
@@ -60,6 +63,7 @@ See `.env.example` for sample values.
 | `PARTNER_PRIVATE_KEY_DER` | Partner private key body in DER / PKCS#8 (PEM headers are added in code)                                |
 | `API_KEY`                 | Value expected in `x-api-key` for holder-facing routes                                                  |
 | `ADMIN_API_KEY`           | Value expected in `x-admin-api-key` for admin routes                                                    |
+| `SD_JWT_TSL_PARTITION_SIZE` | Optional. Credentials per status list partition. Setting it enables the [token status list](#optional-sd-jwt-vc-token-status-list); leave unset to disable |
 
 
 Generate `SEED` with a CSPRNG:
@@ -205,6 +209,7 @@ No API key (URLs are embedded in credentials).
 | ------ | --------------------------- | ---------------------------------------- |
 | `GET`  | `/credential-status/:nonce` | Non-revocation / credential status proof |
 | `GET`  | `/revocation-status/:nonce` | `{ "isRevoked": boolean }`               |
+| `GET`  | `/statuslist/:partition`    | Signed status list partition. Only when the [token status list](#optional-sd-jwt-vc-token-status-list) is enabled |
 
 
 `ISSUER_ORIGIN` must be the publicly reachable origin that serves these routes.
@@ -218,6 +223,7 @@ Auth: `x-admin-api-key: <ADMIN_API_KEY>`.
 | ------ | ------------------------- | ---------------------------------------------------------------------------------------- |
 | `GET`  | `/admin/issuance-history` | Paginated history (`page`, `limit`, `order`, `holderDid`, `schemaId`, `revocationNonce`) |
 | `POST` | `/admin/revoke`           | Body `{ "nonce": "<revocationNonce>" }`                                                  |
+| `POST` | `/admin/publish-token-status-list` | Rebuild and publish status list partitions. Only when the [token status list](#optional-sd-jwt-vc-token-status-list) is enabled |
 
 
 ## Register with AIR
@@ -298,6 +304,12 @@ pnpm run batch-issue-vc-csv -- \
 
 Result log: `[unix_timestamp_ms].csv`.
 
+## Optional: SD-JWT VC token status list
+
+Only relevant if you issue credentials with `proofType: SD_JWT_VC`, and disabled unless you set `SD_JWT_TSL_PARTITION_SIZE`. It publishes revocation as a single compressed bit array per partition, so verifiers check status without revealing which credential they are looking at, instead of calling `GET /revocation-status/:nonce` per credential. Revocation works either way - the status list is a privacy and caching improvement, not a requirement.
+
+The partition size is permanent once you start issuing, so read [docs/sd-jwt-tsl.md](docs/sd-jwt-tsl.md) before enabling it. It covers how to size partitions, when to publish, and the current limitations.
+
 ## Checklist before go-live
 
 - [ ] `SEED` generated securely and backed up
@@ -309,4 +321,5 @@ Result log: `[unix_timestamp_ms].csv`.
 - [ ] `ISSUER_ORIGIN` is public HTTPS; status endpoints reachable
 - [ ] If CORS is enabled, `*.air3.com` is whitelisted
 - [ ] `availableVcApiUrl` / `issueVcApiUrl` / `issuerBackendApiKey` set in AIR partner config
+- [ ] If using the [token status list](#optional-sd-jwt-vc-token-status-list): `SD_JWT_TSL_PARTITION_SIZE` finalized before first issuance, and a publish job scheduled
 - [ ] Smoke-test claim flow end-to-end with a test holder
