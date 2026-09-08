@@ -2,19 +2,19 @@ import { EntityManager } from '@mikro-orm/postgresql';
 import { Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { digest, generateSalt } from '@owf/crypto';
-import { StatusType } from '@owf/token-status-list';
 import { DisclosureFrame, HashAlgorithm } from '@sd-jwt/core';
 import { SDJwtVcInstance, SdJwtVcPayload } from '@sd-jwt/sd-jwt-vc';
 import { base64url, CompactJWSHeaderParameters, FlattenedSign, importPKCS8 } from 'jose';
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
+import { DidService } from '../../services/did.service';
 import { TokenStatusListService } from './token-status-list.service';
+
+import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
 
 @Injectable()
 export class SdJwtVcService implements OnModuleInit {
   private readonly issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
-  private readonly partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
   private readonly partnerPrivateKeyAlg = this.configService.get<string>('PARTNER_PRIVATE_KEY_ALG') ?? 'ES256';
   private readonly partnerPrivateKeyDer = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
   private readonly partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
@@ -25,6 +25,7 @@ export class SdJwtVcService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly entityManager: EntityManager,
+    private readonly didService: DidService,
     private readonly tokenStatusListService: TokenStatusListService,
   ) {}
 
@@ -50,7 +51,8 @@ export class SdJwtVcService implements OnModuleInit {
   ) {
     const em = opts?.em ?? this.entityManager;
 
-    const header: object = { kid: this.partnerPrivateKeyKid };
+    const issuerDid = this.didService.getIssuerDid();
+    const header: object = { kid: `${issuerDid}#${this.partnerPrivateKeyKid}` };
     const id = `urn:${randomUUID()}`;
     const nonce = BigInt(`0x${randomBytes(8).toString('hex')}`).toString();
     const iat = Math.floor(Date.now() / 1000);
@@ -61,7 +63,7 @@ export class SdJwtVcService implements OnModuleInit {
       nonce: basePayload.nonce ?? nonce,
       iat: basePayload.iat ?? iat,
 
-      iss: this.issuerOrigin,
+      iss: issuerDid,
       // cnf: // Must be passed by the caller
       // status: // TODO: draft-ietf-oauth-status-list-21
     };

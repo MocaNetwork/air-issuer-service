@@ -12,6 +12,8 @@ import { IssuerModule } from './issuer/issuer.module';
 import { AppController } from './app.controller';
 import { WellKnownController } from './well-known.controller';
 
+import { DidService } from './services/did.service';
+
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -24,6 +26,6 @@ import { WellKnownController } from './well-known.controller';
     SdJwtModule,
   ],
   controllers: [AppController, WellKnownController],
-  providers: [],
+  providers: [DidService],
 })
 export class AppModule {}

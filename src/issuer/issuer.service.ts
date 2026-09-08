@@ -66,8 +66,6 @@ export class IssuerService {
     const VCs: any[] = [];
 
     for (const proofType of Object.keys(this.schemas) as ProofType[]) {
-      console.log(proofType);
-      console.log(filters?.proofType);
       if (filters?.proofType !== undefined && filters?.proofType !== proofType) {
         continue;
       }
