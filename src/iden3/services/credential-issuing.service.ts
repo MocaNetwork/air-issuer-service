@@ -23,8 +23,6 @@ import {
 import { HttpService } from '@nestjs/axios';
 import { Injectable, Logger, OnModuleInit, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomUUID } from 'node:crypto';
-import { encryptText } from '../../common/utils/encryption';
 import { hexStrToBuffer } from '../../common/utils/string';
 import { createDocumentLoader } from '../lib/document-loader';
 
@@ -40,10 +38,11 @@ export class CredentialIssuingService implements OnModuleInit {
   private readonly nodeEnv = this.configService.get<string>('NODE_ENV') ?? 'sandbox';
 
   private readonly issuerOrigin: string;
+  private readonly seed: string | undefined;
   private readonly documentLoader = createDocumentLoader(this.httpService);
   private readonly dataStorage: IDataStorage;
-  private readonly credentialWallet: CredentialWallet;
-  private readonly identityWallet: IdentityWallet;
+  private credentialWallet: CredentialWallet;
+  private identityWallet: IdentityWallet;
 
   private readonly method: (typeof DidMethod)[string];
   private readonly blockchain: (typeof Blockchain)[string];
@@ -60,6 +59,7 @@ export class CredentialIssuingService implements OnModuleInit {
     this.method = this.configService.get('IDEN3_METHOD') ?? DidMethod.Air;
     this.blockchain = this.configService.get('IDEN3_BLOCKCHAIN') ?? Blockchain.Id;
     this.networkId = NETWORK_ID[this.nodeEnv] ?? this.configService.get<string>('IDEN3_NETWORK_ID') ?? NetworkId.Testnet;
+    this.seed = this.configService.get<string>('SEED');
 
     this.issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN').trim().replace(/\/+$/, '');
     this.dataStorage = {
@@ -68,6 +68,11 @@ export class CredentialIssuingService implements OnModuleInit {
       mt: new InMemoryMerkleTreeStorage(40),
       states: { getRpcProvider: () => null } as any,
     };
+  }
+
+  async onModuleInit() {
+    if (!this.seed) return;
+
     const memoryKeyStore = new InMemoryPrivateKeyStore();
     const bjjProvider = new BjjProvider(KmsKeyType.BabyJubJub, memoryKeyStore);
     const kms = new KMS();
@@ -75,15 +80,12 @@ export class CredentialIssuingService implements OnModuleInit {
 
     this.credentialWallet = new CredentialWallet(this.dataStorage);
     this.identityWallet = new IdentityWallet(kms, this.dataStorage, this.credentialWallet);
-  }
 
-  async onModuleInit() {
-    const seed = this.configService.getOrThrow<string>('SEED');
     const issuerIdentity = await this.identityWallet.createIdentity({
       method: this.method,
       blockchain: this.blockchain,
       networkId: this.networkId,
-      seed: hexStrToBuffer(seed),
+      seed: hexStrToBuffer(this.seed),
       revocationOpts: {
         type: CredentialStatusType.SparseMerkleTreeProof,
         id: `${this.issuerOrigin}/credential-status`,
@@ -133,6 +135,8 @@ export class CredentialIssuingService implements OnModuleInit {
   }
 
   async credentialStatus(nonce: string) {
+    this.assertSetupState();
+
     // TODO: implement tree state management
     // when MTP-based credentials becomes enabled.
     // const treeStateSnapshot = ...;
@@ -172,18 +176,12 @@ export class CredentialIssuingService implements OnModuleInit {
   }
 
   async isRevoked(nonce: string): Promise<boolean> {
+    this.assertSetupState();
     return await this.entityManager.count(Revocation, { nonce }).then((e) => e > 0);
   }
 
-  async encrypt(text: string, pubKeyHexString: string, opts?: { encoding: 'hex' | 'base64' }) {
-    // NOTE: Temporarily placed here just for example integration ease
-    const pubKey = hexStrToBuffer(pubKeyHexString);
-    return await encryptText(text, pubKey, opts);
-  }
-
   private assertSetupState() {
-    if (!this.issuerDID) {
-      throw new ServiceUnavailableException('Server initializing');
-    }
+    if (!this.seed) throw new ServiceUnavailableException('Iden3 not enabled');
+    if (!this.issuerDID) throw new ServiceUnavailableException('Server initializing');
   }
 }

@@ -76,9 +76,7 @@ export class IssuerService {
 
         const { credentialSubject } = await schema.generateCredentialData(holder.userId);
         const payload = JSON.stringify(credentialSubject);
-        const encryptedData = await this.credentialIssuingService.encrypt(payload, holder.pubKey, {
-          encoding: 'base64',
-        });
+        const encryptedData = await encryptText(payload, hexStrToBuffer(holder.pubKey), { encoding: 'base64' });
 
         VCs.push({
           holderDID: holder.holderDID,
@@ -102,7 +100,7 @@ export class IssuerService {
     },
     proofType?: ProofType,
   ): Promise<void> {
-    proofType ??= ProofType.BJJ_SIG_2021;
+    proofType ??= ProofType.SD_JWT_VC;
 
     await this.entityManager.transactional(async (em) => {
       const issued =
