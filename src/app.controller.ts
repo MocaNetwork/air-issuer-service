@@ -57,14 +57,9 @@ export class AppController {
     return this.tokenStatusListService.fetchTSLPartition(partition);
   }
 
-  @Get('credential-status/:nonce')
-  async credentialStatus(@Param() { nonce }: NonceParamDto) {
-    return await this.issuerService.credentialStatus(nonce);
-  }
-
   @Get('revocation-status/:nonce')
-  async revocationStatus(@Param() { nonce }: NonceParamDto, @Query() query: RevocationStatusRequestQueryDto) {
-    return await this.issuerService.revocationStatus(nonce, query.proofType);
+  async revocationStatus(@Param() { nonce }: NonceParamDto) {
+    return await this.issuerService.revocationStatus(nonce);
   }
 
   @UseGuards(AdminApiKeyGuard)
@@ -76,7 +71,7 @@ export class AppController {
   @UseGuards(AdminApiKeyGuard)
   @Post('admin/revoke')
   async adminRevoke(@Body() body: NonceRequestBodyDto) {
-    await this.issuerService.revoke(body.nonce, body.proofType);
+    await this.issuerService.revoke(body.nonce);
   }
 
   @UseGuards(AdminApiKeyGuard)

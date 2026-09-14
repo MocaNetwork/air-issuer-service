@@ -2,6 +2,7 @@ import {
   IsDefined,
   IsEnum,
   IsHexadecimal,
+  IsIn,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -11,7 +12,6 @@ import {
   ValidateIf,
   ValidateNested,
 } from 'class-validator';
-import { DID_REGEXP } from '../../iden3/constants';
 
 import { ProofType } from '../enums/proof-type.enum';
 import { JsonWebKeyDto } from './json-web-key.dto';
@@ -25,7 +25,8 @@ class SigningKeyDto {
 export class IssueVcRequestBodyDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(DID_REGEXP, { message: 'Invalid holderDID Format' })
+  // TODO: To be defined
+  // @Matches(DID_REGEXP, { message: 'Invalid holderDID Format' })
   holderDID: string;
 
   @IsString()
@@ -54,7 +55,7 @@ export class IssueVcRequestBodyDto {
   schemaId: string;
 
   @IsOptional()
-  @IsEnum(ProofType)
   @IsNotEmpty()
+  @IsIn([ProofType.SD_JWT_VC])
   proofType?: ProofType;
 }

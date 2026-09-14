@@ -1,11 +1,11 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
+import { IsEnum, IsIn, IsNotEmpty, IsOptional, IsString, Matches } from 'class-validator';
 import { ProofType } from '../enums/proof-type.enum';
-import { DID_REGEXP } from '../../iden3/constants';
 
 export class AvailableVcRequestBodyDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(DID_REGEXP, { message: 'Invalid holderDID Format' })
+  // TODO: To be defined
+  // @Matches(DID_REGEXP, { message: 'Invalid holderDID Format' })
   holderDID: string;
 
   @IsString()
@@ -22,7 +22,7 @@ export class AvailableVcRequestBodyDto {
   schemaId?: string;
 
   @IsOptional()
-  @IsEnum(ProofType)
   @IsNotEmpty()
+  @IsIn([ProofType.SD_JWT_VC])
   proofType?: ProofType;
 }

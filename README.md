@@ -6,10 +6,9 @@ Self-hosted NestJS service for partners who issue AIR credentials. AIR's credent
 
 Most of the crypto, encryption, dstorage upload, and revocation plumbing is already wired. As an issuer partner you mainly:
 
-1. **Configure partner identity** — env vars for Postgres, `SEED`, partner JWT signing key, and API keys (see [Environment](#environment)).
+1. **Configure partner identity** — env vars for Postgres, partner JWT signing key, and API keys (see [Environment](#environment)).
 2. **Register one schema class per credential type** — map a Credential Dashboard schema to a `BaseSchema` subclass that decides *whether* and *what* to issue for a given `userId` (see [Credential schemas](#credential-schemas)).
 3. **Deploy this service** — expose the public HTTP API, then give AIR your `availableVcApiUrl`, `issueVcApiUrl`, and optional `issuerBackendApiKey` (see [Register with AIR](#register-with-air)).
-4. **Register your issuer DID** — after first boot, extract the DID derived from `SEED` and register it with the AIR team / Credential Dashboard (see [Extract issuer DID](#extract-issuer-did)).
 
 Optional features, both off by default and safe to skip:
 
@@ -56,7 +55,6 @@ See `.env.example` for sample values.
 | `ISSUER_ORIGIN`           | Public origin of **this** service (no trailing slash). Used in credential status URLs                   |
 | `AIR_API_ORIGIN`          | AIR API origin (batch issue / initialize-user). Reach out to AIR team                                   |
 | `MOCA_CHAIN_API_ORIGIN`   | Moca chain API origin. Reach out to AIR team                                                            |
-| `SEED`                    | 32-byte hex seed for the issuer BabyJubJub identity (**private**). Changing it creates a new issuer DID |
 | `PARTNER_ID`              | AIR partner UUID                                                                                        |
 | `PARTNER_PRIVATE_KEY_KID` | JWKS key id                                                                                             |
 | `PARTNER_PRIVATE_KEY_ALG` | Signing algorithm (e.g. `RS256`)                                                                        |
@@ -64,25 +62,6 @@ See `.env.example` for sample values.
 | `API_KEY`                 | Value expected in `x-api-key` for holder-facing routes                                                  |
 | `ADMIN_API_KEY`           | Value expected in `x-admin-api-key` for admin routes                                                    |
 | `SD_JWT_TSL_PARTITION_SIZE` | Optional. Credentials per status list partition. Setting it enables the [token status list](#optional-sd-jwt-vc-token-status-list); leave unset to disable |
-
-
-Generate `SEED` with a CSPRNG:
-
-```bash
-echo 0x`openssl rand -hex 32`
-```
-
-Treat `SEED`, partner private key material, and API keys as secrets. Back up `SEED` — losing it means you can no longer operate as that issuer DID.
-
-## Extract issuer DID
-
-After the app can boot with a valid `SEED`:
-
-```bash
-echo 'console.log(get(CredentialIssuingService).issuerDID.string());' | pnpm run repl -
-```
-
-Register this DID with AIR / Credential Dashboard before going live. The DID is deterministic from `SEED`; do not rotate `SEED` for an existing issuer.
 
 ## Credential schemas
 
@@ -312,7 +291,6 @@ The partition size is permanent once you start issuing, so read [docs/sd-jwt-tsl
 
 ## Checklist before go-live
 
-- [ ] `SEED` generated securely and backed up
 - [ ] Issuer DID extracted and registered with AIR
 - [ ] Partner JWT keys (`PARTNER_*`) match AIR JWKS
 - [ ] Each Credential Dashboard schema has a matching class in `src/issuer/schemas/` and is exported from `index.ts`

@@ -5,7 +5,6 @@ import mikroOrmConfig from './mikro-orm.config';
 
 import { DStorageModule } from './dstorage/dstorage.module';
 import { HttpModule } from './dynamic-modules/http-module';
-import { Iden3Module } from './iden3/iden3.module';
 import { SdJwtModule } from './sd-jwt/sd-jwt.module';
 import { IssuerModule } from './issuer/issuer.module';
 
@@ -22,7 +21,6 @@ import { DidService } from './services/did.service';
     DStorageModule,
     HttpModule,
     IssuerModule,
-    Iden3Module,
     SdJwtModule,
   ],
   controllers: [AppController, WellKnownController],

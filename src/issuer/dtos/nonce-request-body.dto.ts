@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsNumberString, IsOptional, MaxLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsNumberString, IsOptional, MaxLength } from 'class-validator';
 import { ProofType } from '../enums/proof-type.enum';
 
 export class NonceRequestBodyDto {
@@ -7,7 +7,8 @@ export class NonceRequestBodyDto {
   @MaxLength(20)
   nonce: string;
 
-  @IsEnum(ProofType)
   @IsOptional()
+  @IsNotEmpty()
+  @IsIn([ProofType.SD_JWT_VC])
   proofType?: ProofType;
 }
