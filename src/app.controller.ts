@@ -1,9 +1,8 @@
-import { Body, Controller, Get, Header, HttpCode, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { AdminApiKeyGuard } from './common/guards/admin-api-key.guard';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 
 import { IssuerService } from './issuer/issuer.service';
-import { TokenStatusListService } from './sd-jwt/services/token-status-list.service';
 
 import { AvailableVcRequestBodyDto } from './issuer/dtos/available-vc-request-body.dto';
 import { IssuanceHistoryRequestQueryDto } from './issuer/dtos/issuance-history-request-query.dto';
@@ -11,14 +10,10 @@ import { IssueVcRequestBodyDto } from './issuer/dtos/issue-vc-request-body.dto';
 import { NonceParamDto } from './issuer/dtos/nonce-param.dto';
 import { NonceRequestBodyDto } from './issuer/dtos/nonce-request-body.dto';
 import { RevocationStatusRequestQueryDto } from './issuer/dtos/revocation-status-request-query-dto';
-import { StatusListRequestParamDto } from './issuer/dtos/status-list-request-param.dto';
 
 @Controller()
 export class AppController {
-  constructor(
-    private readonly issuerService: IssuerService,
-    private readonly tokenStatusListService: TokenStatusListService,
-  ) {}
+  constructor(private readonly issuerService: IssuerService) {}
 
   @UseGuards(ApiKeyGuard)
   @Post('available-vc')
@@ -51,12 +46,6 @@ export class AppController {
     );
   }
 
-  @Get('statuslist/:partition')
-  @Header('content-type', 'application/statuslist+jwt')
-  async statusList(@Param() { partition }: StatusListRequestParamDto) {
-    return this.tokenStatusListService.fetchTSLPartition(partition);
-  }
-
   @Get('credential-status/:nonce')
   async credentialStatus(@Param() { nonce }: NonceParamDto) {
     return await this.issuerService.credentialStatus(nonce);
@@ -64,7 +53,7 @@ export class AppController {
 
   @Get('revocation-status/:nonce')
   async revocationStatus(@Param() { nonce }: NonceParamDto, @Query() query: RevocationStatusRequestQueryDto) {
-    return await this.issuerService.revocationStatus(nonce, query.proofType);
+    return await this.issuerService.revocationStatus(nonce);
   }
 
   @UseGuards(AdminApiKeyGuard)
@@ -76,13 +65,6 @@ export class AppController {
   @UseGuards(AdminApiKeyGuard)
   @Post('admin/revoke')
   async adminRevoke(@Body() body: NonceRequestBodyDto) {
-    await this.issuerService.revoke(body.nonce, body.proofType);
-  }
-
-  @UseGuards(AdminApiKeyGuard)
-  @Post('admin/publish-token-status-list')
-  @HttpCode(200)
-  async adminPublishTokenStatusList() {
-    await this.tokenStatusListService.publish();
+    await this.issuerService.revoke(body.nonce);
   }
 }

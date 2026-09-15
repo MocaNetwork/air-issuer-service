@@ -1,7 +1,7 @@
 import {
   IsDefined,
-  IsEnum,
   IsHexadecimal,
+  IsIn,
   IsNotEmpty,
   IsObject,
   IsOptional,
@@ -25,7 +25,8 @@ class SigningKeyDto {
 export class IssueVcRequestBodyDto {
   @IsString()
   @IsNotEmpty()
-  @Matches(DID_REGEXP, { message: 'Invalid holderDID Format' })
+  // TODO: To be defined
+  // @Matches(DID_REGEXP, { message: 'Invalid holderDID Format' })
   holderDID: string;
 
   @IsString()
@@ -54,7 +55,7 @@ export class IssueVcRequestBodyDto {
   schemaId: string;
 
   @IsOptional()
-  @IsEnum(ProofType)
   @IsNotEmpty()
+  @IsIn([ProofType.BJJ_SIG_2021])
   proofType?: ProofType;
 }

@@ -7,14 +7,10 @@ import { CredentialIssuance } from './entities/credential-issuance.entity';
 import { encryptText } from '../common/utils/encryption';
 import { hexStrToBuffer } from '../common/utils/string';
 import { DStorageAPIService } from '../dstorage/services/dstorage-api.service';
-import { SdJwtVcService } from '../sd-jwt/services/sd-jwt-vc.service';
 import { PartnerJwtService } from '../services/partner-jwt.service';
 
 import Iden3Schemas from './schemas';
 import { BaseSchema as Iden3BaseSchema } from './schemas/base-schema';
-
-import SdJwtVCSchemas from './sd-jwt-vc-schemas';
-import { BaseSchema as SdJwtVCBaseSchema } from './sd-jwt-vc-schemas/base-schema';
 
 import { ProofType } from './enums/proof-type.enum';
 
@@ -22,11 +18,9 @@ import { ProofType } from './enums/proof-type.enum';
 export class IssuerService {
   private readonly schemas: {
     [ProofType.BJJ_SIG_2021]: Iden3BaseSchema[];
-    [ProofType.SD_JWT_VC]: SdJwtVCBaseSchema<any>[];
   };
   private readonly schemaIdMap: {
     [ProofType.BJJ_SIG_2021]: { [schemaId: string]: Iden3BaseSchema };
-    [ProofType.SD_JWT_VC]: { [schemaId: string]: SdJwtVCBaseSchema<any> };
   };
 
   constructor(
@@ -38,24 +32,17 @@ export class IssuerService {
     // Intended design is HTTP Interaction. For ease of integration,
     // temporarily exposed the underlying service.
     private readonly credentialIssuingService: CredentialIssuingService,
-    private readonly sdJwtVcService: SdJwtVcService,
   ) {
     this.schemas = {
       [ProofType.BJJ_SIG_2021]: Iden3Schemas,
-      [ProofType.SD_JWT_VC]: SdJwtVCSchemas,
     };
 
     this.schemaIdMap = {
       [ProofType.BJJ_SIG_2021]: {},
-      [ProofType.SD_JWT_VC]: {},
     };
 
     Iden3Schemas.forEach((e) => {
       this.schemaIdMap[ProofType.BJJ_SIG_2021][e.schemaId] = e;
-    });
-
-    SdJwtVCSchemas.forEach((e) => {
-      this.schemaIdMap[ProofType.SD_JWT_VC][e.schemaId] = e;
     });
   }
 
@@ -105,10 +92,7 @@ export class IssuerService {
     proofType ??= ProofType.BJJ_SIG_2021;
 
     await this.entityManager.transactional(async (em) => {
-      const issued =
-        proofType === ProofType.SD_JWT_VC
-          ? await this.issueSdJwtVc(schemaId, holder)
-          : await this.issueBjjSig(schemaId, holder);
+      const issued = await this.issueBjjSig(schemaId, holder);
       const { credential, credentialIssuance, id: credentialId } = issued;
 
       const payload = JSON.stringify(credential);
@@ -144,20 +128,6 @@ export class IssuerService {
     return await schema.issue(holder.userId, {
       holderDID: holder.holderDID,
       issuingService: this.credentialIssuingService,
-    });
-  }
-
-  private async issueSdJwtVc(
-    schemaId: string,
-    holder: { userId: string; holderDID: string; signingKey?: { jwk: JsonWebKey } },
-  ) {
-    const schema = this.schemaIdMap[ProofType.SD_JWT_VC][schemaId];
-    if (schema === undefined) throw new NotFoundException(`Invalid Schema: ${schemaId}`);
-
-    return await schema.issue(holder.userId, {
-      holderDID: holder.holderDID,
-      issuingService: this.sdJwtVcService,
-      cnf: holder.signingKey,
     });
   }
 
@@ -208,23 +178,14 @@ export class IssuerService {
     };
   }
 
-  async revocationStatus(nonce: string, proofType?: ProofType) {
-    let isRevoked: boolean;
-    if (proofType === ProofType.SD_JWT_VC) {
-      isRevoked = await this.sdJwtVcService.isRevoked(nonce);
-    } else {
-      isRevoked = await this.credentialIssuingService.isRevoked(nonce);
-    }
+  async revocationStatus(nonce: string) {
+    const isRevoked = await this.credentialIssuingService.isRevoked(nonce);
     return { isRevoked };
   }
 
-  async revoke(revocationNonce: string, proofType?: ProofType): Promise<void> {
+  async revoke(revocationNonce: string): Promise<void> {
     await this.entityManager.transactional(async (em) => {
-      if (proofType === ProofType.SD_JWT_VC) {
-        await this.sdJwtVcService.revoke(revocationNonce);
-      } else {
-        await this.credentialIssuingService.revoke(revocationNonce);
-      }
+      await this.credentialIssuingService.revoke(revocationNonce);
       await em.nativeUpdate(CredentialIssuance, { revocationNonce }, { revokedAt: raw('NOW()') });
     });
   }
