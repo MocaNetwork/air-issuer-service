@@ -1,8 +1,9 @@
 import { EntityManager, FilterQuery, FindOptions, raw } from '@mikro-orm/postgresql';
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 
 import { CredentialIssuance } from './entities/credential-issuance.entity';
 
+import { V2AuthService } from '../air-api/service/v2-auth.service';
 import { encryptText } from '../common/utils/encryption';
 import { hexStrToBuffer } from '../common/utils/string';
 import { DStorageAPIService } from '../dstorage/services/dstorage-api.service';
@@ -11,6 +12,7 @@ import { PartnerJwtService } from '../services/partner-jwt.service';
 
 import SdJwtVCSchemas from './sd-jwt-vc-schemas';
 import { BaseSchema as SdJwtVCBaseSchema } from './sd-jwt-vc-schemas/base-schema';
+import { DynamicSchema } from './sd-jwt-vc-schemas/dynamic-schema';
 
 import { ProofType } from './enums/proof-type.enum';
 
@@ -27,6 +29,7 @@ export class IssuerService {
     private readonly entityManager: EntityManager,
     private readonly dStorageApiService: DStorageAPIService,
     private readonly partnerJwtService: PartnerJwtService,
+    private readonly v2AuthService: V2AuthService,
     private readonly sdJwtVcService: SdJwtVcService,
   ) {
     this.schemas = {
@@ -87,32 +90,89 @@ export class IssuerService {
 
     await this.entityManager.transactional(async (em) => {
       const issued = await this.issueSdJwtVc(schemaId, holder);
-      const { credential, credentialIssuance, id: credentialId } = issued;
 
-      const payload = JSON.stringify(credential);
-      const encryptedData = await encryptText(payload, hexStrToBuffer(holder.encryptionKey), { encoding: 'base64' });
-
-      await em.persist(credentialIssuance).flush();
-
-      const partnerJwt = await this.partnerJwtService.generateJwt({}, {});
-      const dstorageInfo = await this.dStorageApiService.createObject(
-        {
-          holderDid: holder.holderDID,
-          proofType,
-          schemaId,
-          expiresAt: credentialIssuance.expiresAt.toISOString(),
-          data: encryptedData.encryptedData,
-          iv: encryptedData.iv,
-          authTag: encryptedData.authTag,
-          encryptedKey: encryptedData.dataEncPublicKey,
-          externalId: credentialId,
-        },
-        { 'x-partner-auth': partnerJwt },
-      );
-      credentialIssuance.dstorageInfo = dstorageInfo.data;
-
-      await em.persist(credentialIssuance).flush();
+      await this.storeCredential(em, issued, {
+        holderDID: holder.holderDID,
+        encryptionKey: holder.encryptionKey,
+        schemaId,
+        proofType,
+      });
     });
+  }
+
+  async adminIssueVc(params: {
+    userId: string;
+    schemaId: string;
+    expiration: string;
+    vct: string;
+    credentialSubject: Record<string, unknown>;
+    disclosureFrame?: Record<string, unknown>;
+  }): Promise<void> {
+    const holder = await this.resolveHolder(params.userId);
+    const schema = new DynamicSchema(params);
+
+    await this.entityManager.transactional(async (em) => {
+      const issued = await schema.issue(params.userId, {
+        holderDID: holder.holderDID,
+        issuingService: this.sdJwtVcService,
+        cnf: holder.signingKey,
+        em,
+      });
+
+      await this.storeCredential(em, issued, {
+        holderDID: holder.holderDID,
+        encryptionKey: holder.encryptionKey,
+        schemaId: params.schemaId,
+        proofType: ProofType.SD_JWT_VC,
+      });
+    });
+  }
+
+  private async resolveHolder(email: string) {
+    const partnerJwt = await this.partnerJwtService.generateJwt({ email }, {});
+    const identity = await this.v2AuthService.initializeUser({ partnerJwt }).then((e) => e.data);
+
+    if (!identity.did || !identity.publicKey) {
+      throw new UnprocessableEntityException(`Unable to resolve user: ${email}`);
+    }
+
+    return {
+      holderDID: identity.did,
+      encryptionKey: identity.publicKey,
+      signingKey: identity.signingKey ?? undefined,
+    };
+  }
+
+  private async storeCredential(
+    em: EntityManager,
+    issued: { id: string; credentialIssuance: CredentialIssuance; credential: string | object },
+    target: { holderDID: string; encryptionKey: string; schemaId: string; proofType: ProofType },
+  ) {
+    const { credential, credentialIssuance, id: credentialId } = issued;
+
+    const payload = JSON.stringify(credential);
+    const encryptedData = await encryptText(payload, hexStrToBuffer(target.encryptionKey), { encoding: 'base64' });
+
+    await em.persist(credentialIssuance).flush();
+
+    const partnerJwt = await this.partnerJwtService.generateJwt({}, {});
+    const dstorageInfo = await this.dStorageApiService.createObject(
+      {
+        holderDid: target.holderDID,
+        proofType: target.proofType,
+        schemaId: target.schemaId,
+        expiresAt: credentialIssuance.expiresAt.toISOString(),
+        data: encryptedData.encryptedData,
+        iv: encryptedData.iv,
+        authTag: encryptedData.authTag,
+        encryptedKey: encryptedData.dataEncPublicKey,
+        externalId: credentialId,
+      },
+      { 'x-partner-auth': partnerJwt },
+    );
+    credentialIssuance.dstorageInfo = dstorageInfo.data;
+
+    await em.persist(credentialIssuance).flush();
   }
 
   private async issueSdJwtVc(
