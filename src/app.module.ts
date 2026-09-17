@@ -3,6 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import mikroOrmConfig from './mikro-orm.config';
 
+import { AirApiModule } from './air-api/air-api.module';
 import { DStorageModule } from './dstorage/dstorage.module';
 import { HttpModule } from './dynamic-modules/http-module';
 import { SdJwtModule } from './sd-jwt/sd-jwt.module';
@@ -18,6 +19,7 @@ import { DidService } from './services/did.service';
     ConfigModule.forRoot({ isGlobal: true }),
     MikroOrmModule.forRoot(mikroOrmConfig),
 
+    AirApiModule,
     DStorageModule,
     HttpModule,
     IssuerModule,

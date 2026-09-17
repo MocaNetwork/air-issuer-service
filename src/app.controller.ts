@@ -5,6 +5,7 @@ import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { IssuerService } from './issuer/issuer.service';
 import { TokenStatusListService } from './sd-jwt/services/token-status-list.service';
 
+import { AdminIssueVcRequestBodyDto } from './issuer/dtos/admin-issue-vc-request-body.dto';
 import { AvailableVcRequestBodyDto } from './issuer/dtos/available-vc-request-body.dto';
 import { IssuanceHistoryRequestQueryDto } from './issuer/dtos/issuance-history-request-query.dto';
 import { IssueVcRequestBodyDto } from './issuer/dtos/issue-vc-request-body.dto';
@@ -66,6 +67,19 @@ export class AppController {
   @Get('admin/issuance-history')
   async adminIssuanceHistory(@Query() query: IssuanceHistoryRequestQueryDto) {
     return await this.issuerService.issuanceHistory(query ?? {});
+  }
+
+  @UseGuards(AdminApiKeyGuard)
+  @Post('admin/issue-vc')
+  async adminIssueVc(@Body() body: AdminIssueVcRequestBodyDto) {
+    await this.issuerService.adminIssueVc({
+      userId: body.userId,
+      schemaId: body.schemaId,
+      expiration: body.expiration,
+      vct: body.vct,
+      credentialSubject: body.credentialSubject,
+      disclosureFrame: body.disclosureFrame,
+    });
   }
 
   @UseGuards(AdminApiKeyGuard)

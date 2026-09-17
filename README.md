@@ -202,6 +202,7 @@ Auth: `x-admin-api-key: <ADMIN_API_KEY>`.
 | ------ | ------------------------- | ---------------------------------------------------------------------------------------- |
 | `GET`  | `/admin/issuance-history` | Paginated history (`page`, `limit`, `order`, `holderDid`, `schemaId`, `revocationNonce`) |
 | `POST` | `/admin/revoke`           | Body `{ "nonce": "<revocationNonce>" }`                                                  |
+| `POST` | `/admin/issue-vc`         | Issue an SD-JWT-VC without a registered schema class. Body `{ "userId", "schemaId", "expiration" (ISO 8601, future), "vct", "credentialSubject", "disclosureFrame"? }`. Resolves the holder via AIR `initialize-user`; `credentialSubject` must not contain the reserved claims (`cnf`, `exp`, `iat`, `id`, `iss`, `nonce`, `status`, `sub`, `vct`, `vct#integrity`); `disclosureFrame` defaults to all first-level `credentialSubject` keys |
 | `POST` | `/admin/publish-token-status-list` | Rebuild and publish status list partitions. Only when the [token status list](#optional-sd-jwt-vc-token-status-list) is enabled |
 
 
