@@ -5,6 +5,7 @@ import { DidService } from './services/did.service';
 @Controller('.well-known')
 export class WellKnownController {
   private readonly issuer = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
+  private readonly partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
   private readonly jwks: { keys: JsonWebKey[] };
 
   constructor(
@@ -15,6 +16,11 @@ export class WellKnownController {
     jwksString ||= this.configService.get<string>('SD_JWT_JWKS');
     jwksString ||= this.configService.getOrThrow<string>('PARTNER_JWKS');
     this.jwks = JSON.parse(jwksString) as { keys: JsonWebKey[] };
+  }
+
+  @Get('air-partner-info')
+  airPartnerInfo() {
+    return { partnerId: this.partnerId };
   }
 
   @Get('did.json')

@@ -29,12 +29,20 @@ export class DidService {
         publicKeyJwk: jwk,
       };
     });
+    const service = [
+      {
+        id: `${did}#air-partner-info`,
+        type: 'AirPartnerInfoService',
+        serviceEndpoint: `${this.issuerOrigin}/.well-known/air-partner-info`,
+      },
+    ];
 
     return {
       '@context': ['https://www.w3.org/ns/did/v1', 'https://w3id.org/security/suites/jws-2020/v1'],
       id: did,
       verificationMethod,
       assertionMethod: verificationMethod.map(({ id }) => id),
+      service,
     };
   }
 
