@@ -168,7 +168,7 @@ export class IssuerService {
         createdAt: e.createdAt.toISOString(),
         expiresAt: e.expiresAt.toISOString(),
         revokedAt: e.revokedAt?.toISOString() ?? null,
-        type: 'bjj',
+        type: e.type ?? null,
       };
     });
 
