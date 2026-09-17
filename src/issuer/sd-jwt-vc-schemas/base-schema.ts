@@ -4,6 +4,7 @@ import { SdJwtVcPayload } from '@sd-jwt/sd-jwt-vc';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { SdJwtVcService } from '../../sd-jwt/services/sd-jwt-vc.service';
 import { CredentialIssuance } from '../entities/credential-issuance.entity';
+import { ProofType } from '../enums/proof-type.enum';
 
 export abstract class BaseSchema<T extends Record<string, unknown>> {
   abstract readonly schemaId: string;
@@ -50,6 +51,7 @@ export abstract class BaseSchema<T extends Record<string, unknown>> {
 
     credentialIssuance.holderDid = holderDID;
     credentialIssuance.schemaId = this.schemaId;
+    credentialIssuance.type = ProofType.SD_JWT_VC;
     credentialIssuance.revocationNonce = nonce;
     credentialIssuance.createdAt = new Date(iat * 1_000);
     credentialIssuance.expiresAt = new Date(exp * 1_000);
