@@ -4,7 +4,10 @@ import { DidService } from './services/did.service';
 
 @Controller('.well-known')
 export class WellKnownController {
-  private readonly issuer = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
+  private readonly issuer = this.configService
+    .getOrThrow<string>('ISSUER_ORIGIN')
+    .trim()
+    .replace(/\/+$/, '');
   private readonly partnerId = this.configService.getOrThrow<string>('PARTNER_ID');
   private readonly jwks: { keys: JsonWebKey[] };
 

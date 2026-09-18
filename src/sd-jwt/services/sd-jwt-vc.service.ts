@@ -7,14 +7,16 @@ import { SDJwtVcInstance, SdJwtVcPayload } from '@sd-jwt/sd-jwt-vc';
 import { base64url, CompactJWSHeaderParameters, FlattenedSign, importPKCS8 } from 'jose';
 import { randomBytes, randomUUID } from 'node:crypto';
 
-import { DidService } from '../../services/did.service';
 import { TokenStatusListService } from './token-status-list.service';
 
 import { SdJwtVc } from '../entities/sd-jwt-vc.entity';
 
 @Injectable()
 export class SdJwtVcService implements OnModuleInit {
-  private readonly issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
+  private readonly issuerOrigin = this.configService
+    .getOrThrow<string>('ISSUER_ORIGIN')
+    .trim()
+    .replace(/\/+$/, '');
   private readonly partnerPrivateKeyAlg = this.configService.get<string>('PARTNER_PRIVATE_KEY_ALG') ?? 'ES256';
   private readonly partnerPrivateKeyDer = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_DER');
   private readonly partnerPrivateKeyKid = this.configService.getOrThrow<string>('PARTNER_PRIVATE_KEY_KID');
@@ -25,7 +27,6 @@ export class SdJwtVcService implements OnModuleInit {
   constructor(
     private readonly configService: ConfigService,
     private readonly entityManager: EntityManager,
-    private readonly didService: DidService,
     private readonly tokenStatusListService: TokenStatusListService,
   ) {}
 
@@ -51,8 +52,7 @@ export class SdJwtVcService implements OnModuleInit {
   ) {
     const em = opts?.em ?? this.entityManager;
 
-    const issuerDid = this.didService.getIssuerDid();
-    const header: object = { kid: `${issuerDid}#${this.partnerPrivateKeyKid}` };
+    const header: object = { kid: this.partnerPrivateKeyKid };
     const id = `urn:${randomUUID()}`;
     const nonce = BigInt(`0x${randomBytes(8).toString('hex')}`).toString();
     const iat = Math.floor(Date.now() / 1000);
@@ -63,7 +63,7 @@ export class SdJwtVcService implements OnModuleInit {
       nonce: basePayload.nonce ?? nonce,
       iat: basePayload.iat ?? iat,
 
-      iss: issuerDid,
+      iss: this.issuerOrigin,
       // cnf: // Must be passed by the caller
       // status: // TODO: draft-ietf-oauth-status-list-21
     };
