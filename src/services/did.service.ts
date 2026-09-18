@@ -6,9 +6,12 @@ import type { JsonWebKey } from 'node:crypto';
 export class DidService {
   private readonly issuerOrigin: string;
   private readonly jwks: { keys: JsonWebKey[] };
+  /** Iden3 `did:air` issuer DID, when this partner also issues Iden3 credentials. */
+  private readonly iden3IssuerDid: string | undefined;
 
   constructor(private readonly configService: ConfigService) {
     this.issuerOrigin = this.configService.getOrThrow<string>('ISSUER_ORIGIN');
+    this.iden3IssuerDid = this.configService.get<string>('IDEN3_ISSUER_DID');
 
     let jwksString: string | undefined = this.configService.get<string>('PARTNER_JWKS');
     jwksString ||= this.configService.get<string>('SD_JWT_JWKS');
@@ -40,6 +43,7 @@ export class DidService {
     return {
       '@context': ['https://www.w3.org/ns/did/v1', 'https://w3id.org/security/suites/jws-2020/v1'],
       id: did,
+      ...(this.iden3IssuerDid ? { alsoKnownAs: [this.iden3IssuerDid] } : {}),
       verificationMethod,
       assertionMethod: verificationMethod.map(({ id }) => id),
       service,
