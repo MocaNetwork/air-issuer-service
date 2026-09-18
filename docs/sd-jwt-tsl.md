@@ -1,6 +1,6 @@
 # SD-JWT VC Token Status List
 
-**Token Status List (TSL) is optional.** It only applies to credentials issued with `proofType: SD_JWT_VC`, and it is off unless you set `SD_JWT_TSL_PARTITION_SIZE`. With it off, SD-JWT VCs are still revocable - verifiers just have to ask this service about one credential at a time via `GET /revocation-status/:nonce?proofType=SD_JWT_VC`.
+**Token Status List (TSL) is optional.** It only applies to credentials issued with `proofType: SD_JWT_VC`, and it is off unless you set `SD_JWT_TSL_PARTITION_SIZE`. With it off, SD-JWT VCs are still revocable - verifiers just have to ask this service about one credential at a time via `GET /revocation-status/:nonce`.
 
 ## Background
 
@@ -55,10 +55,10 @@ Credentials issued before you set `SD_JWT_TSL_PARTITION_SIZE` have no `status` c
 curl -X POST "$ISSUER_ORIGIN/admin/revoke" \
   -H "x-admin-api-key: $ADMIN_API_KEY" \
   -H 'content-type: application/json' \
-  -d '{"nonce":"<revocationNonce>","proofType":"SD_JWT_VC"}'
+  -d '{"nonce":"<revocationNonce>"}'
 ```
 
-This marks the credential revoked in the database immediately, so `GET /revocation-status/:nonce?proofType=SD_JWT_VC` reflects it right away. The **published status list does not change yet.**
+This marks the credential revoked in the database immediately, so `GET /revocation-status/:nonce` reflects it right away. The **published status list does not change yet.**
 
 ### 2. Publish
 

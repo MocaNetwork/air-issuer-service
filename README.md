@@ -10,9 +10,11 @@ Most of the crypto, encryption, dstorage upload, and revocation plumbing is alre
 2. **Register one schema class per credential type** — map a Credential Dashboard schema to a `BaseSchema` subclass that decides *whether* and *what* to issue for a given `userId` (see [Credential schemas](#credential-schemas)).
 3. **Deploy this service** — expose the public HTTP API, then give AIR your `availableVcApiUrl`, `issueVcApiUrl`, and optional `issuerBackendApiKey` (see [Register with AIR](#register-with-air)).
 
+All credentials are issued as SD-JWT VCs (`proofType: SD_JWT_VC`).
+
 Optional features, both off by default and safe to skip:
 
-- [Direct issuance (CSV)](#direct-issuance-issue-on-behalf) - bulk issue-on-behalf without the interactive claim flow.
+- [Admin direct issuance](#admin-direct-issuance) - issue on behalf of a user without the interactive claim flow.
 - [SD-JWT VC token status list](#optional-sd-jwt-vc-token-status-list) - privacy-preserving batch revocation for SD-JWT VC credentials.
 
 ### Do not change (unless you know why)
@@ -22,7 +24,8 @@ Optional features, both off by default and safe to skip:
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------- |
 | `POST /available-vc` / `POST /issue-vc` request/response shapes           | Called by AIR API; breaking them breaks the holder claim flow |
 | Encryption of `credentialSubject` / issued VCs with the holder's `pubKey` | Only the holder's client can decrypt                                 |
-| `GET /credential-status/:nonce` URL under `ISSUER_ORIGIN`                 | Embedded in issued credentials for revocation checks                 |
+| `GET /revocation-status/:nonce` URL under `ISSUER_ORIGIN`                 | Used by verifiers for revocation checks                              |
+| `GET /.well-known/did.json` and `/.well-known/jwt-vc-issuer`              | Publish the issuer `did:web` and the keys that verify issued credentials |
 | Partner JWT signing (`PARTNER_PRIVATE_KEY_`*)                             | Used for dstorage and AIR auth                                       |
 
 
@@ -52,40 +55,50 @@ See `.env.example` for sample values.
 | Variable                  | Purpose                                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`            | Postgres connection URL                                                                                 |
-| `ISSUER_ORIGIN`           | Public origin of **this** service (no trailing slash). Used in credential status URLs                   |
-| `AIR_API_ORIGIN`          | AIR API origin (batch issue / initialize-user). Reach out to AIR team                                   |
-| `MOCA_CHAIN_API_ORIGIN`   | Moca chain API origin. Reach out to AIR team                                                            |
+| `ISSUER_ORIGIN`           | Public origin of **this** service (no trailing slash). Used for the issuer `did:web` and status URLs    |
+| `AIR_API_ORIGIN`          | Optional. AIR API origin used to resolve holders (`initialize-user`); defaults per `NODE_ENV`            |
+| `MOCA_CHAIN_API_ORIGIN`   | Optional. Moca chain API origin used for dstorage; defaults per `NODE_ENV`                              |
 | `PARTNER_ID`              | AIR partner UUID                                                                                        |
 | `PARTNER_PRIVATE_KEY_KID` | JWKS key id                                                                                             |
 | `PARTNER_PRIVATE_KEY_ALG` | Signing algorithm (e.g. `RS256`)                                                                        |
 | `PARTNER_PRIVATE_KEY_DER` | Partner private key body in DER / PKCS#8 (PEM headers are added in code)                                |
+| `PARTNER_JWKS`            | JSON JWKS with the public keys matching `PARTNER_PRIVATE_KEY_*`. Served at `/.well-known/did.json` and `/.well-known/jwt-vc-issuer` |
+| `SD_JWT_JWKS`             | Optional. Fallback JWKS used when `PARTNER_JWKS` is unset                                               |
 | `API_KEY`                 | Value expected in `x-api-key` for holder-facing routes                                                  |
 | `ADMIN_API_KEY`           | Value expected in `x-admin-api-key` for admin routes                                                    |
 | `SD_JWT_TSL_PARTITION_SIZE` | Optional. Credentials per status list partition. Setting it enables the [token status list](#optional-sd-jwt-vc-token-status-list); leave unset to disable |
 
 ## Credential schemas
 
-This is the main customization surface. Use `src/issuer/schemas/schema-01KKX3Q7DEK0GM2TCKMMHA.ts` as a template.
+This is the main customization surface. Use `src/issuer/sd-jwt-vc-schemas/schema_01KXF7F6Z5XGHXRJY37JEK.ts` as a template.
 
 ### Steps
 
-1. In Credential Dashboard, create (or note) the schema: **schema id**, **type**, **schema JSON URL**, **JSON-LD context URL**.
-2. Add `src/issuer/schemas/schema-<SCHEMA_ID>.ts` implementing `BaseSchema`.
-3. Register the class in `src/issuer/schemas/index.ts` (`schemas` array).
+1. In Credential Dashboard, create (or note) the schema: **schema id** and the credential **type** (`vct`).
+2. Add `src/issuer/sd-jwt-vc-schemas/schema_<SCHEMA_ID>.ts` extending `BaseSchema`.
+3. Register the instance in `src/issuer/sd-jwt-vc-schemas/index.ts` (`schemas` array).
 
 ### Required fields / method
 
 ```ts
+import { DisclosureFrame } from '@sd-jwt/core';
 import { BaseSchema } from './base-schema';
 
-export default class Schema extends BaseSchema {
-  public readonly schemaId = '<SCHEMA_ID>';           // Credential Dashboard schema id
-  public readonly schemaType = '<TYPE>';               // credential type string
-  public readonly schemaUrl = 'https://.../schema';    // JSON schema download URL
-  public readonly schemaContextUrl = 'https://.../ctx'; // JSON-LD context URL
+type Claim = {
+  someField: string;
+};
+
+class Schema_<SCHEMA_ID> extends BaseSchema<Claim> {
+  public readonly schemaId = '<SCHEMA_ID>';              // Credential Dashboard schema id
+  public readonly vct = undefined;                       // credential type; defaults to schemaId
+  public readonly ['vct#integrity'] = undefined;         // optional type metadata digest
+  public readonly disclosureFrame: DisclosureFrame<Claim> = {
+    _sd: ['someField'],                                  // claims the holder can disclose selectively
+  };
+  public readonly expirySec = 30 * 24 * 60 * 60;         // credential lifetime in seconds
 
   /**
-   * Return the claims + expiry for this user.
+   * Return the claims for this user.
    * Called for both available-vc (preview) and issue-vc (actual issuance).
    * Throw or return empty / omit from claimable set if the user is not eligible
    * (customize claimableVCs / generateCredentialData as needed).
@@ -94,32 +107,33 @@ export default class Schema extends BaseSchema {
     // Load attributes from your DB / APIs using userId
     return {
       credentialSubject: {
-        // keys must match the schema definition (do not include `id`;
-        // the framework sets credentialSubject.id = holderDID)
         someField: '...',
       },
-      expiration: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60, // unix seconds
+      expiration: Math.floor(Date.now() / 1000) + this.expirySec, // unix seconds
     };
   }
 }
+
+export default new Schema_<SCHEMA_ID>();
 ```
 
 Register:
 
 ```ts
-// src/issuer/schemas/index.ts
-import Schema1 from './schema-01KKX3Q7DEK0GM2TCKMMHA';
-import Schema2 from './schema-<YOUR_SCHEMA_ID>';
+// src/issuer/sd-jwt-vc-schemas/index.ts
+import Schema1 from './schema_01KXF7F6Z5XGHXRJY37JEK';
+import Schema2 from './schema_<YOUR_SCHEMA_ID>';
 
-const schemas: BaseSchema[] = [new Schema1(), new Schema2()];
+const schemas: BaseSchema<any>[] = [Schema1, Schema2];
 export default schemas;
 ```
 
 ### Implementation tips
 
 - **`userId`** is the partner primary identifier AIR resolved for the holder (e.g. email / external id). Use it to fetch real claim data; do not invent attributes from `holderDID` alone unless that is your model.
-- **`credentialSubject` keys** must match the schema in Credential Dashboard. Type mismatches (string vs number vs boolean) will break merklization / verification.
-- **`expiration`** is unix time in **seconds**.
+- **`credentialSubject` keys** must match the schema in Credential Dashboard. Type mismatches (string vs number vs boolean) will break verification.
+- **Reserved claims**: `issue` sets `id`, `nonce`, `vct`, `sub`, `exp`, and `cnf` on the SD-JWT payload. Do not return them from `generateCredentialData`.
+- **`expirySec`** determines the `exp` of the issued credential; the `expiration` returned by `generateCredentialData` is only the preview value.
 - **Eligibility**: default `claimableVCs` just calls `generateCredentialData`. Override `claimableVCs` on `BaseSchema` if you need different preview vs issue behavior, or to skip ineligible users.
 - **Idempotency / business rules** (one credential per user, re-issue after expiry, etc.) belong in your schema / service layer — add checks before calling `issue`.
 - Keep subject payloads free of secrets you would not want encrypted to the holder's key and stored in dstorage.
@@ -141,7 +155,8 @@ Request:
   "holderDID": "did:air:...",
   "pubKey": "0x...",
   "userId": "<partner primary id>",
-  "schemaId": "<optional filter>"
+  "schemaId": "<optional filter>",
+  "proofType": "SD_JWT_VC"
 }
 ```
 
@@ -158,7 +173,8 @@ Response:
         "iv": "...",
         "authTag": "...",
         "dataEncPublicKey": "..."
-      }
+      },
+      "proofType": "SD_JWT_VC"
     }
   ]
 }
@@ -175,23 +191,29 @@ Request:
   "holderDID": "did:air:...",
   "pubKey": "0x...",
   "userId": "<partner primary id>",
-  "schemaId": "<required>"
+  "schemaId": "<required>",
+  "signingKey": { "jwk": { "kty": "EC", "crv": "P-256", "x": "...", "y": "..." } },
+  "proofType": "SD_JWT_VC"
 }
 ```
 
-### Public status
+`encryptionKey` is accepted as an alias of `pubKey`. `signingKey.jwk`, when present, becomes the credential's `cnf` (holder key binding).
 
-No API key (URLs are embedded in credentials).
+### Public
+
+No API key (URLs are embedded in credentials or resolved by verifiers).
 
 
 | Method | Path                        | Purpose                                  |
 | ------ | --------------------------- | ---------------------------------------- |
-| `GET`  | `/credential-status/:nonce` | Non-revocation / credential status proof |
 | `GET`  | `/revocation-status/:nonce` | `{ "isRevoked": boolean }`               |
 | `GET`  | `/statuslist/:partition`    | Signed status list partition. Only when the [token status list](#optional-sd-jwt-vc-token-status-list) is enabled |
+| `GET`  | `/.well-known/did.json`     | Issuer `did:web` document (verification methods + AIR partner info service) |
+| `GET`  | `/.well-known/jwt-vc-issuer` | SD-JWT VC issuer metadata: `issuer` and the JWKS verifiers use to check issued credentials and status lists |
+| `GET`  | `/.well-known/air-partner-info` | `{ "partnerId": "<PARTNER_ID>" }`, referenced from the DID document |
 
 
-`ISSUER_ORIGIN` must be the publicly reachable origin that serves these routes.
+`ISSUER_ORIGIN` must be the publicly reachable origin that serves these routes. The issuer DID is derived from it as `did:web:<host>`.
 
 ### Admin
 
@@ -202,7 +224,7 @@ Auth: `x-admin-api-key: <ADMIN_API_KEY>`.
 | ------ | ------------------------- | ---------------------------------------------------------------------------------------- |
 | `GET`  | `/admin/issuance-history` | Paginated history (`page`, `limit`, `order`, `holderDid`, `schemaId`, `revocationNonce`) |
 | `POST` | `/admin/revoke`           | Body `{ "nonce": "<revocationNonce>" }`                                                  |
-| `POST` | `/admin/issue-vc`         | Issue an SD-JWT-VC without a registered schema class. Body `{ "userId", "schemaId", "expiration" (ISO 8601, future), "vct", "credentialSubject", "disclosureFrame"? }`. Resolves the holder via AIR `initialize-user`; `credentialSubject` must not contain the reserved claims (`cnf`, `exp`, `iat`, `id`, `iss`, `nonce`, `status`, `sub`, `vct`, `vct#integrity`); `disclosureFrame` defaults to all first-level `credentialSubject` keys |
+| `POST` | `/admin/issue-vc`         | Issue on behalf of a user, without a registered schema class (see [Admin direct issuance](#admin-direct-issuance)) |
 | `POST` | `/admin/publish-token-status-list` | Rebuild and publish status list partitions. Only when the [token status list](#optional-sd-jwt-vc-token-status-list) is enabled |
 
 
@@ -210,12 +232,12 @@ Auth: `x-admin-api-key: <ADMIN_API_KEY>`.
 
 After deploy:
 
-1. Confirm `GET ${ISSUER_ORIGIN}/credential-status/...` is reachable over HTTPS.
+1. Confirm `GET ${ISSUER_ORIGIN}/.well-known/did.json` and `GET ${ISSUER_ORIGIN}/revocation-status/...` are reachable over HTTPS.
 2. Provide the AIR team (or partner config UI) with:
   - `availableVcApiUrl` — full URL to `POST /available-vc` (e.g. `https://issuer.example.com/available-vc`)
   - `issueVcApiUrl` — full URL to `POST /issue-vc`
   - `issuerBackendApiKey` — same value as `API_KEY` (optional but recommended)
-3. Register issuer DID + schemas in Credential Dashboard / AIR partner setup (`PARTNER_ID`, JWKS / `PARTNER_PRIVATE_KEY_*`).
+3. Register issuer DID + schemas in Credential Dashboard / AIR partner setup (`PARTNER_ID`, JWKS / `PARTNER_PRIVATE_KEY_*`). The DID is `did:web:<host of ISSUER_ORIGIN>`; changing `ISSUER_ORIGIN` changes the issuer identity.
 
 AIR API resolves the holder, then POSTs to your URLs. Misconfigured or unreachable URLs surface as issuer-backend unavailable to the holder.
 
@@ -237,52 +259,29 @@ pnpm run start:prod
 
 Default port: `PORT` or `3000`.
 
-## Direct issuance (issue on behalf)
+## Admin direct issuance
 
-Batch-issue without the interactive claim UI. Resolves each email via AIR `initialize-user`, issues, encrypts, and uploads.
-
-CSV columns:
-
-```
-Required:
-- email
-- expiration
-- credentialSubject.[field1]
-- credentialSubject.[field2]
-...
-```
-
-All `credentialSubject.[field]` cells must be **JSON-stringified** values:
-
-```js
-JSON.stringify("Hello World"); // => "Hello World"  (quotes in the CSV cell)
-JSON.stringify(100);           // => 100
-JSON.stringify(true);          // => true
-```
-
-Example:
-
-```csv
-email,expiration,credentialSubject.field1,credentialSubject.field2
-test@animocabrands.com,2030-01-01T00:00:00+08:00,"""Hello World""",4
-```
+Issue without the interactive claim UI and without a registered schema class. The holder is resolved from `userId` via AIR `initialize-user` (so `userId` must be the email AIR knows the user by), then the credential is issued, encrypted to the holder's key, and uploaded to dstorage exactly as in the claim flow.
 
 ```bash
-pnpm run batch-issue-vc-csv -- \
-  SCHEMA_ID \
-  SCHEMA_URL \
-  SCHEMA_TYPE \
-  path_to_csv_file.csv
-
-# Example:
-pnpm run batch-issue-vc-csv -- \
-  01KKX3Q7DEK0GM2TCKMMHA \
-  https://credential.api.staging.air3.com/dstorage/download/01KKX3Q7DFFWNMD85T17X8 \
-  mocabasher \
-  ./credentials-batch-1.csv
+curl -X POST "$ISSUER_ORIGIN/admin/issue-vc" \
+  -H "x-admin-api-key: $ADMIN_API_KEY" \
+  -H 'content-type: application/json' \
+  -d '{
+    "userId": "test@animocabrands.com",
+    "schemaId": "01KXF7F6Z5XGHXRJY37JEK",
+    "vct": "01KXF7F6Z5XGHXRJY37JEK",
+    "expiration": "2030-01-01T00:00:00+08:00",
+    "credentialSubject": { "firstName": "Ada", "lastName": "Lovelace" },
+    "disclosureFrame": { "_sd": ["firstName", "lastName"] }
+  }'
 ```
 
-Result log: `[unix_timestamp_ms].csv`.
+- `expiration` — ISO 8601, must be in the future.
+- `credentialSubject` — must not contain the reserved claims `cnf`, `exp`, `iat`, `id`, `iss`, `nonce`, `status`, `sub`, `vct`, `vct#integrity`.
+- `disclosureFrame` — optional; defaults to making every first-level `credentialSubject` key selectively disclosable.
+
+Issuance is recorded in `/admin/issuance-history` and revoked the same way as claimed credentials.
 
 ## Optional: SD-JWT VC token status list
 
@@ -292,10 +291,10 @@ The partition size is permanent once you start issuing, so read [docs/sd-jwt-tsl
 
 ## Checklist before go-live
 
-- [ ] Issuer DID extracted and registered with AIR
-- [ ] Partner JWT keys (`PARTNER_*`) match AIR JWKS
-- [ ] Each Credential Dashboard schema has a matching class in `src/issuer/schemas/` and is exported from `index.ts`
-- [ ] `generateCredentialData` returns schema-valid subjects and sensible expirations
+- [ ] `did:web` document served at `${ISSUER_ORIGIN}/.well-known/did.json` and registered with AIR
+- [ ] Partner JWT keys (`PARTNER_*`) match AIR JWKS, and `PARTNER_JWKS` / `SD_JWT_JWKS` hold the matching public keys
+- [ ] Each Credential Dashboard schema has a matching class in `src/issuer/sd-jwt-vc-schemas/` and is exported from `index.ts`
+- [ ] `generateCredentialData` returns schema-valid subjects, and `disclosureFrame` / `expirySec` are set per schema
 - [ ] Migrations applied; Postgres durable
 - [ ] `ISSUER_ORIGIN` is public HTTPS; status endpoints reachable
 - [ ] If CORS is enabled, `*.air3.com` is whitelisted
