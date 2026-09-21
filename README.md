@@ -55,7 +55,7 @@ See `.env.example` for sample values.
 | Variable                  | Purpose                                                                                                 |
 | ------------------------- | ------------------------------------------------------------------------------------------------------- |
 | `DATABASE_URL`            | Postgres connection URL                                                                                 |
-| `ISSUER_ORIGIN`           | Public origin of **this** service (no trailing slash). Used for the issuer `did:web` and status URLs    |
+| `ISSUER_ORIGIN`           | Public origin of **this** service (no trailing slash). Used as SD-JWT JWT `iss` / `jwt-vc-issuer` `issuer`, `did:web` derivation, and status URLs |
 | `AIR_API_ORIGIN`          | Optional. AIR API origin used to resolve holders (`initialize-user`); defaults per `NODE_ENV`            |
 | `MOCA_CHAIN_API_ORIGIN`   | Optional. Moca chain API origin used for dstorage; defaults per `NODE_ENV`                              |
 | `PARTNER_ID`              | AIR partner UUID                                                                                        |
@@ -213,7 +213,7 @@ No API key (URLs are embedded in credentials or resolved by verifiers).
 | `GET`  | `/.well-known/air-partner-info` | `{ "partnerId": "<PARTNER_ID>" }`, referenced from the DID document |
 
 
-`ISSUER_ORIGIN` must be the publicly reachable origin that serves these routes. The issuer DID is derived from it as `did:web:<host>`.
+`ISSUER_ORIGIN` must be the publicly reachable origin that serves these routes. SD-JWT credentials use it as JWT `iss`, which must equal `/.well-known/jwt-vc-issuer` `issuer`. The Iden3/W3C DID document is still `did:web:<host>`.
 
 ### Admin
 
@@ -237,7 +237,7 @@ After deploy:
   - `availableVcApiUrl` — full URL to `POST /available-vc` (e.g. `https://issuer.example.com/available-vc`)
   - `issueVcApiUrl` — full URL to `POST /issue-vc`
   - `issuerBackendApiKey` — same value as `API_KEY` (optional but recommended)
-3. Register issuer DID + schemas in Credential Dashboard / AIR partner setup (`PARTNER_ID`, JWKS / `PARTNER_PRIVATE_KEY_*`). The DID is `did:web:<host of ISSUER_ORIGIN>`; changing `ISSUER_ORIGIN` changes the issuer identity.
+3. Register issuer identity + schemas in Credential Dashboard / AIR partner setup (`PARTNER_ID`, JWKS / `PARTNER_PRIVATE_KEY_*`). SD-JWT programs allowlist `ISSUER_ORIGIN` (the HTTPS issuer id). Iden3 still uses `did:web:<host of ISSUER_ORIGIN>`. Changing `ISSUER_ORIGIN` changes the SD-JWT issuer identity.
 
 AIR API resolves the holder, then POSTs to your URLs. Misconfigured or unreachable URLs surface as issuer-backend unavailable to the holder.
 
