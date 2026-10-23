@@ -66,7 +66,7 @@ export class PartnerJwtService implements OnModuleInit {
     signJwt.setProtectedHeader(headers);
     signJwt.setIssuer(this.issuerOrigin);
 
-    if (params.payload.iat !== undefined) signJwt.setIssuedAt(new Date());
+    if (params.payload.iat === undefined) signJwt.setIssuedAt(new Date());
 
     return signJwt.sign(this.partnerPrivateKey);
   }
