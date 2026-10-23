@@ -3,6 +3,7 @@ import { TSMigrationGenerator } from '@mikro-orm/migrations';
 
 import 'dotenv/config';
 
+const NODE_ENV = process.env.NODE_ENV ?? 'production';
 const isRunner = process.env.RUNNER === 'true';
 const clientUrl = process.env.DATABASE_URL || undefined;
 
@@ -21,6 +22,8 @@ if (!clientUrl) {
   });
 }
 
+const logger = NODE_ENV === 'development' ? console.log : undefined;
+
 export default defineConfig({
   entities: ['./dist/**/*.entity.js'],
   entitiesTs: ['./src/**/*.entity.ts'],
@@ -28,8 +31,8 @@ export default defineConfig({
   clientUrl,
   dbName,
   allowGlobalContext: isRunner,
-  logger: console.log,
-  debug: true,
+  logger,
+  debug: NODE_ENV === 'development',
   migrations: {
     snapshotName: 'schema-snapshot',
     safe: false,
