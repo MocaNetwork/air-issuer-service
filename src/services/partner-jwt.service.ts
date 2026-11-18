@@ -3,6 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { importPKCS8, JWTHeaderParameters, JWTPayload, SignJWT } from 'jose';
 
 const EXPIRY_MS = 15 * 60_000;
+
+/**
+ * Audience the dstorage API expects on issuer tokens (`x-partner-auth`). It
+ * scopes the token to dstorage calls, separate from other JWTs the partner
+ * key signs.
+ */
+export const DSTORAGE_AUDIENCE = 'moca-chain-api:dstorage';
 const CACHE_EXPIRY_THRESHOLD_MS = 2 * 60_000;
 
 @Injectable()
@@ -28,7 +35,8 @@ export class PartnerJwtService implements OnModuleInit {
   }
 
   async generateJwt(claims: { email?: string; scope?: string }, opts?: { aud?: string }): Promise<string> {
-    const cacheId = claims?.email ?? '_global';
+    // Keyed by audience too, so a dstorage token never comes back for another use.
+    const cacheId = `${claims?.email ?? '_global'}|${opts?.aud ?? ''}`;
     const cache = this.jwtCache[cacheId];
     if (cache) return cache;
 
@@ -53,6 +61,11 @@ export class PartnerJwtService implements OnModuleInit {
     setTimeout(() => delete this.jwtCache[cacheId], cacheExpiry);
 
     return jwt;
+  }
+
+  /** Token for dstorage API calls (`x-partner-auth`). */
+  generateDstorageJwt(): Promise<string> {
+    return this.generateJwt({}, { aud: DSTORAGE_AUDIENCE });
   }
 
   async signToken(params: { protectedHeader: Partial<JWTHeaderParameters>; payload: JWTPayload }): Promise<string> {

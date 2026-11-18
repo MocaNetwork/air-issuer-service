@@ -116,7 +116,7 @@ export class IssuerService {
 
       await em.persist(credentialIssuance).flush();
 
-      const partnerJwt = await this.partnerJwtService.generateJwt({}, {});
+      const partnerJwt = await this.partnerJwtService.generateDstorageJwt();
       const dstorageInfo = await this.dStorageApiService.createObject(
         {
           holderDid: holder.holderDID,
