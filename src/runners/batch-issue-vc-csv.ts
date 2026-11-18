@@ -97,7 +97,7 @@ async function batchIssueVcCsv({ id, url, type }: CredentialType, items: BatchIs
           encryptedKey: encryptedData.dataEncPublicKey,
           externalId: credential.id,
         },
-        { 'x-partner-auth': partnerJwt },
+        { 'x-partner-auth': await partnerJwtService.generateDstorageJwt() },
       );
       result.push([email, dstorageResponse.data.storagePath]);
     } catch (error: any) {
